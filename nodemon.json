@@ -1,5 +1,5 @@
 {
-  "watch": ["src/**/*", "server.js", "setup.js", "scripts/**/*"],
+  "watch": ["src/**/*", "server.js"],
   "ext": "js,json",
   "ignore": ["node_modules/**/*", "client/**/*", "dist/**/*", "*.log"],
   "env": {
