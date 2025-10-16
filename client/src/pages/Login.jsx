@@ -1,24 +1,14 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate, Link } from "react-router-dom";
-import {
-  Container,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Alert,
-  Tabs,
-  Tab,
-} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { Email as EmailIcon } from "@mui/icons-material";
 import { useAuthStore } from "../store/authStore";
 import { authService } from "../services/authService";
-import { loginSchema, registerSchema } from "../schemas/authSchemas";
+import { loginSchema } from "../schemas/authSchemas";
+import { Box, Paper, Typography, Input, Button, Alert } from "../components/ui";
 
 const Login = () => {
-  const [tab, setTab] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -28,9 +18,8 @@ const Login = () => {
     register,
     handleSubmit,
     formState: { errors },
-    reset,
   } = useForm({
-    resolver: zodResolver(tab === 0 ? loginSchema : registerSchema),
+    resolver: zodResolver(loginSchema),
   });
 
   const onSubmit = async (data) => {
@@ -38,18 +27,9 @@ const Login = () => {
     setLoading(true);
 
     try {
-      if (tab === 0) {
-        // Login
-        const response = await authService.login(data);
-        login(response.user, response.token);
-        navigate("/dashboard");
-      } else {
-        // Register
-        const { confirmPassword, ...registerData } = data;
-        const response = await authService.register(registerData);
-        login(response.user, response.token);
-        navigate("/dashboard");
-      }
+      const response = await authService.login(data);
+      login(response.user, response.token);
+      navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.error || "An error occurred");
     } finally {
@@ -57,89 +37,106 @@ const Login = () => {
     }
   };
 
-  const handleTabChange = (event, newValue) => {
-    setTab(newValue);
-    setError("");
-    reset();
-  };
-
   return (
-    <Container maxWidth="sm" className="py-8">
-      <Paper elevation={3} className="p-6">
-        <Typography variant="h4" component="h1" className="text-center mb-6">
-          Proc to Pay
-        </Typography>
-
-        <Box className="mb-6">
-          <Tabs value={tab} onChange={handleTabChange} centered>
-            <Tab label="Login" />
-            <Tab label="Register" />
-          </Tabs>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#F8F9FA",
+        padding: 2,
+      }}
+    >
+      <Paper
+        elevation={3}
+        sx={{
+          p: 4,
+          width: "100%",
+          maxWidth: 400,
+          borderRadius: 2,
+          textAlign: "center",
+        }}
+      >
+        {/* Logo/Icon */}
+        <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              width: 60,
+              height: 60,
+              backgroundColor: "#6C757D",
+              borderRadius: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}
+          >
+            <Typography
+              variant="h4"
+              sx={{ color: "white", fontWeight: "bold" }}
+            >
+              ₹
+            </Typography>
+          </Box>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{ fontWeight: "bold", color: "#343A40", mb: 1 }}
+          >
+            ProcPay
+          </Typography>
+          <Typography variant="body2" sx={{ color: "#6C757D", mb: 0.5 }}>
+            Procure to Pay ToT & Scheme Management System
+          </Typography>
+          <Typography variant="body2" sx={{ color: "#6C757D" }}>
+            by NexProcureAI
+          </Typography>
         </Box>
 
         {error && (
-          <Alert severity="error" className="mb-4">
+          <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {tab === 1 && (
-            <TextField
-              fullWidth
-              label="Name"
-              {...register("name")}
-              error={!!errors.name}
-              helperText={errors.name?.message}
-              className="mb-4"
-            />
-          )}
-
-          <TextField
-            fullWidth
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Input
             label="Email"
             type="email"
             {...register("email")}
             error={!!errors.email}
             helperText={errors.email?.message}
-            className="mb-4"
+            sx={{ mb: 2 }}
+            startAdornment={<EmailIcon sx={{ mr: 1, color: "#ADB5BD" }} />}
           />
-
-          <TextField
-            fullWidth
-            label="Password"
-            type="password"
-            {...register("password")}
-            error={!!errors.password}
-            helperText={errors.password?.message}
-            className="mb-4"
-          />
-
-          {tab === 1 && (
-            <TextField
-              fullWidth
-              label="Confirm Password"
-              type="password"
-              {...register("confirmPassword")}
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword?.message}
-              className="mb-4"
-            />
-          )}
 
           <Button
             type="submit"
             fullWidth
             variant="contained"
             size="large"
-            disabled={loading}
-            className="py-2"
+            loading={loading}
+            sx={{
+              py: 1.5,
+              backgroundColor: "#6C757D",
+              "&:hover": {
+                backgroundColor: "#5A6268",
+              },
+            }}
           >
-            {loading ? "Loading..." : tab === 0 ? "Login" : "Register"}
+            Send OTP
           </Button>
         </form>
+
+        <Typography
+          variant="body2"
+          sx={{ color: "#6C757D", mt: 2, textAlign: "left" }}
+        >
+          Demo credentials: admin@mail.com, OTP: 1234
+        </Typography>
       </Paper>
-    </Container>
+    </Box>
   );
 };
 
