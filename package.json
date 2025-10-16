@@ -4,27 +4,40 @@
   "description": "Full-stack JavaScript application with Node.js backend and React frontend",
   "main": "server.js",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "node server.js",
+    "dev": "npm run validate-env && concurrently \"npm run server:dev\" \"npm run client\"",
+    "dev:debug": "npm run validate-env && concurrently \"npm run server:debug\" \"npm run client\"",
+    "server": "npm run validate-env && node server.js",
+    "server:dev": "npm run validate-env && nodemon server.js",
+    "server:debug": "npm run validate-env && nodemon --inspect server.js",
+    "server:debug-brk": "npm run validate-env && nodemon --inspect-brk server.js",
+    "server:debug-wait": "npm run validate-env && nodemon --inspect=0.0.0.0:9229 server.js",
+    "server:debug-verbose": "npm run validate-env && DEBUG=* nodemon --inspect server.js",
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
-    "start": "node server.js",
+    "start": "npm run validate-env && node server.js",
+    "start:prod": "NODE_ENV=production npm run setup && npm run validate-env && node server.js",
     "install:all": "npm install && cd client && npm install",
-    "setup": "node setup.js"
+    "setup": "node setup.js",
+    "setup:prod": "NODE_ENV=production node setup.js",
+    "validate-env": "node scripts/validate-env.js",
+    "debug:prisma": "npm run validate-env && DEBUG=prisma:* nodemon server.js",
+    "debug:express": "npm run validate-env && DEBUG=express:* nodemon server.js",
+    "debug:all": "npm run validate-env && DEBUG=* nodemon --inspect server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "@prisma/client": "^5.7.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "morgan": "^1.10.0",
+    "express": "^4.18.2",
     "helmet": "^7.1.0",
-    "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "@prisma/client": "^5.7.1",
+    "morgan": "^1.10.0",
     "prisma": "^5.7.1"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.10"
   },
   "keywords": [
     "nodejs",

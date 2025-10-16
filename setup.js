@@ -8,19 +8,30 @@ console.log("🚀 Setting up Proc to Pay...\n");
 // Create .env file if it doesn't exist
 const envPath = path.join(__dirname, ".env");
 if (!fs.existsSync(envPath)) {
-  const envContent = `# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/proc_to_pay"
+  // Determine which template to use based on environment
+  const env = process.env.NODE_ENV || "development";
+  const templateFile =
+    env === "production"
+      ? "env.production.template"
+      : "env.development.template";
+  const templatePath = path.join(__dirname, templateFile);
 
-# JWT
-JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
-JWT_EXPIRES_IN="7d"
+  if (fs.existsSync(templatePath)) {
+    fs.copyFileSync(templatePath, envPath);
+    console.log(`✅ Created .env file from ${templateFile}`);
+  } else {
+    // Fallback to env.example if templates don't exist
+    const examplePath = path.join(__dirname, "env.example");
+    if (fs.existsSync(examplePath)) {
+      fs.copyFileSync(examplePath, envPath);
+      console.log("✅ Created .env file from env.example");
+    } else {
+      console.error("❌ No environment template found!");
+      process.exit(1);
+    }
+  }
 
-# Server
-PORT=5000
-NODE_ENV="development"`;
-
-  fs.writeFileSync(envPath, envContent);
-  console.log("✅ Created .env file");
+  console.log("⚠️  Please edit .env with your actual values");
 } else {
   console.log("✅ .env file already exists");
 }

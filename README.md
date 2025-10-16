@@ -92,7 +92,31 @@ npm run install:all
 
 ### 2. Environment Setup
 
-Create a `.env` file in the root directory:
+#### Automatic Setup (Recommended)
+
+```bash
+# For development
+npm run setup
+
+# For production
+npm run setup:prod
+```
+
+This will automatically create `.env` files from templates.
+
+#### Manual Setup
+
+If you prefer manual setup, copy the appropriate template:
+
+```bash
+# For development
+cp env.development.template .env
+
+# For production
+cp env.production.template .env
+```
+
+Then edit `.env` with your actual values:
 
 ```env
 # Database
@@ -107,10 +131,21 @@ PORT=5000
 NODE_ENV="development"
 ```
 
-Create a `.env` file in the client directory:
+#### Client Environment
+
+The setup script will also create `client/.env`:
 
 ```env
 VITE_API_URL=http://localhost:5000/api
+```
+
+#### Environment Validation
+
+The application includes automatic environment validation. All scripts will check your environment configuration before starting:
+
+```bash
+# Validate environment manually
+npm run validate-env
 ```
 
 ### 3. Database Setup
@@ -129,13 +164,18 @@ npx prisma db seed
 ### 4. Development
 
 ```bash
-# Run both backend and frontend concurrently
+# Run both backend and frontend concurrently (with environment validation)
 npm run dev
 
 # Or run them separately:
-npm run server    # Backend only (port 5000)
+npm run server    # Backend only (port 5000) - includes validation
 npm run client   # Frontend only (port 5173)
+
+# Production mode
+npm run start:prod  # Sets up production environment and starts server
 ```
+
+**Note**: All server scripts now include automatic environment validation to catch configuration issues early.
 
 ### 5. Production Build
 

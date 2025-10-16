@@ -1,0 +1,11 @@
+{
+  "watch": ["src/**/*", "server.js", "setup.js", "scripts/**/*"],
+  "ext": "js,json",
+  "ignore": ["node_modules/**/*", "client/**/*", "dist/**/*", "*.log"],
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "delay": 1000,
+  "verbose": true,
+  "restartable": "rs"
+}
