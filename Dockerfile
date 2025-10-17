@@ -23,8 +23,9 @@ RUN cd client && npm run build
 # Generate Prisma client at runtime (will be done when container starts)
 # This avoids the SSL certificate issue during build
 
-# Expose port
+# Expose ports
 EXPOSE 5000
+EXPOSE 9229
 
 # Start application with Prisma generation and SSL workaround
 CMD ["sh", "-c", "NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate && npm start"]

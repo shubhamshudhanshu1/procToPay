@@ -3,6 +3,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
 const path = require("path");
+const redisService = require("./src/services/redis");
 require("dotenv").config();
 
 const app = express();
@@ -53,7 +54,41 @@ app.use("*", (req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+// Initialize Redis connection
+async function initializeRedis() {
+  try {
+    await redisService.connect();
+    console.log("Redis connected successfully");
+  } catch (error) {
+    console.error("Failed to connect to Redis:", error);
+    // Continue without Redis in development
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
+  }
+}
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("Shutting down gracefully...");
+  await redisService.disconnect();
+  process.exit(0);
 });
+
+process.on("SIGTERM", async () => {
+  console.log("Shutting down gracefully...");
+  await redisService.disconnect();
+  process.exit(0);
+});
+
+// Start server
+async function startServer() {
+  await initializeRedis();
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  });
+}
+
+startServer();
