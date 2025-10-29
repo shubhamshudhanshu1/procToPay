@@ -34,15 +34,16 @@ services:
 
   # MailHog for email testing
   mailhog:
-    image: mailhog/mailhog:latest
+    image: mailhog/mailhog:v1.0.1
     ports:
       - '1025:1025' # SMTP server
       - '8025:8025' # Web UI
     volumes:
-      - mailhog_data:/maildir
+      - ./.mailhog:/maildir
     environment:
       MH_STORAGE: maildir
       MH_MAILDIR_PATH: /maildir
+    command: ['/MailHog', '-storage=maildir', '-maildir-path=/maildir']
 
   # Backend API (Development mode with volume mounts)
   app:
@@ -122,4 +123,3 @@ services:
 volumes:
   postgres_dev_data:
   redis_dev_data:
-  mailhog_data:

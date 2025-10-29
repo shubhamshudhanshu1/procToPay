@@ -143,3 +143,6 @@ build/
 
 # Redis dump
 dump.rdb
+
+# MailHog persisted emails
+.mailhog/
