@@ -24,7 +24,8 @@ class Mailer {
     } else {
       // Use local SMTP for development
       this.transporter = nodemailer.createTransport({
-        host: 'localhost',
+        // In Docker, use the service name so the app container can reach MailHog
+        host: 'mailhog',
         port: 1025,
         secure: false,
       });

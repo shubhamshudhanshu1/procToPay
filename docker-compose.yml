@@ -52,7 +52,7 @@ services:
       - SESSION_SECRET=your-32-byte-secret-key-here-change-in-production
       - APP_URL=https://app.localhost:3000
       - API_URL=https://api.localhost:4000
-      - MAIL_FROM=Example <noreply@example.com>
+      - MAIL_FROM=shubham34934@gmail.com
       - AUTH_MODE=otp
       - OTP_LENGTH=6
       - OTP_TTL_SECONDS=600

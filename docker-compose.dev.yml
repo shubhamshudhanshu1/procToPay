@@ -65,7 +65,7 @@ services:
       - SESSION_SECRET=dev-session-secret-key-change-in-production
       - APP_URL=https://app.localhost:3000
       - API_URL=https://api.localhost:4000
-      - MAIL_FROM=noreply@example.com
+      - MAIL_FROM=shubham34934@gmail.com
       - AUTH_MODE=otp
       - OTP_LENGTH=6
       - OTP_TTL_SECONDS=600
@@ -80,6 +80,27 @@ services:
         condition: service_healthy
     # Use ts-node-dev for auto-restart on file changes with debug support
     command: sh -c "NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma db push && npx ts-node-dev --inspect=0.0.0.0:9229 --respawn --transpile-only src/server.ts"
+
+  # Prisma Studio (Development only)
+  prisma-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./prisma:/app/prisma
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/proctopay_dev
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - PRISMA_CLI_BINARY_TARGETS=linux-musl-arm64-openssl-3.0.x
+      - PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+    ports:
+      - '5556:5555'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npx prisma studio --port 5555 --hostname 0.0.0.0"
 
 volumes:
   postgres_dev_data:
