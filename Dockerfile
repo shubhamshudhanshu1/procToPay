@@ -1,4 +1,4 @@
-# Simple production Dockerfile
+# Production-ready passwordless auth system
 FROM node:20-alpine
 
 WORKDIR /app
@@ -6,26 +6,39 @@ WORKDIR /app
 # Install OpenSSL and other dependencies for Prisma
 RUN apk add --no-cache openssl
 
+# Install pnpm
+RUN npm install -g pnpm
+
 # Copy package files
 COPY package*.json ./
-COPY client/package*.json ./client/
+COPY pnpm-lock.yaml* ./
 
-# Install dependencies (including dev dependencies for build)
-RUN npm ci
-RUN cd client && npm ci
+# Install dependencies
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Build React app first (doesn't need Prisma)
-RUN cd client && npm run build
+# Generate Prisma client
+RUN pnpm db:generate
 
-# Generate Prisma client at runtime (will be done when container starts)
-# This avoids the SSL certificate issue during build
+# Build the application
+RUN pnpm build
 
-# Expose ports
-EXPOSE 5000
-EXPOSE 9229
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
 
-# Start application with Prisma generation and SSL workaround
-CMD ["sh", "-c", "NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate && npm start"]
+# Change ownership of the app directory
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# Expose port
+EXPOSE 4000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:4000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Start the application
+CMD ["node", "dist/server.js"]

@@ -12,12 +12,30 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerifiedAt DateTime?
+  createdVia      String
+  status          String    @default("active")
+  tokenVersion    Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@map("users")
+}
+
+model LoginToken {
+  id         String    @id @default(cuid())
+  email      String
+  token      String    @unique
+  kind       String    // 'otp' | 'magic'
+  ipHash     String?
+  uaHash     String?
+  usedAt     DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+  @@map("login_tokens")
 }

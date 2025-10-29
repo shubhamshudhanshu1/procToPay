@@ -1,0 +1,38 @@
+# Development Dockerfile for passwordless auth system
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install OpenSSL and other dependencies for Prisma
+RUN apk add --no-cache openssl
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package*.json ./
+COPY pnpm-lock.yaml* ./
+
+# Install dependencies (including dev dependencies)
+RUN pnpm install
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client (with SSL workaround)
+RUN NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm db:generate
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Change ownership of the app directory
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# Expose ports
+EXPOSE 4000
+EXPOSE 9229
+
+# Default command (will be overridden by docker-compose)
+CMD ["npm", "run", "dev"]

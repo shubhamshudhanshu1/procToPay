@@ -1,54 +1,87 @@
-version: "3.8"
+version: '3.8'
 
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: proc_to_pay
+      POSTGRES_DB: proctopay_dev
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_PASSWORD: password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
-      - redis_data:/data
+      - redis_dev_data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MailHog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - '1025:1025' # SMTP server
+      - '8025:8025' # Web UI
+    volumes:
+      - mailhog_data:/maildir
+    environment:
+      MH_STORAGE: maildir
+      MH_MAILDIR_PATH: /maildir
 
   # Backend API (Development mode with volume mounts)
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     volumes:
       # Mount source code for live reloading
       - ./src:/app/src
-      - ./server.js:/app/server.js
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./prisma:/app/prisma
       # Exclude node_modules to use container's version
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres_password@postgres:5432/proc_to_pay
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/proctopay_dev
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=dev-jwt-secret-key-change-in-production
-      - JWT_EXPIRES_IN=7d
-      - PORT=5000
+      - SESSION_SECRET=dev-session-secret-key-change-in-production
+      - APP_URL=https://app.localhost:3000
+      - API_URL=https://api.localhost:4000
+      - MAIL_FROM=noreply@example.com
+      - AUTH_MODE=otp
+      - OTP_LENGTH=6
+      - OTP_TTL_SECONDS=600
+      - PORT=4000
     ports:
-      - "5000:5000"
-      - "9229:9229" # Debug port
+      - '4000:4000'
+      - '9229:9229' # Debug port
     depends_on:
-      - postgres
-      - redis
-    # Use nodemon for auto-restart on file changes with debug support
-    command: sh -c "NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate && npx nodemon --inspect=0.0.0.0:9229 server.js"
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Use ts-node-dev for auto-restart on file changes with debug support
+    command: sh -c "NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma db push && npx ts-node-dev --inspect=0.0.0.0:9229 --respawn --transpile-only src/server.ts"
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_dev_data:
+  redis_dev_data:
+  mailhog_data:
