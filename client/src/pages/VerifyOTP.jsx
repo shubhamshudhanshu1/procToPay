@@ -1,42 +1,72 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate } from 'react-router-dom';
-import { Email as EmailIcon } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { VpnKey as KeyIcon } from '@mui/icons-material';
+import { z } from 'zod';
 import { authService } from '../services/authService';
-import { loginSchema } from '../schemas/authSchemas';
+import { useAuthStore } from '../store/authStore';
 import { Box, Paper, Typography, Input, Button, Alert } from '../components/ui';
 
-const Login = () => {
+const otpSchema = z.object({
+  otp: z.string().min(4, 'OTP must be at least 4 digits').max(8, 'OTP must be at most 8 digits'),
+});
+
+const VerifyOTP = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuthStore();
+
+  // Get email from location state or redirect to login
+  const email = location.state?.email;
+
+  if (!email) {
+    navigate('/login');
+    return null;
+  }
 
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(otpSchema),
   });
 
   const onSubmit = async (data) => {
     setError('');
-    setSuccess('');
     setLoading(true);
 
     try {
-      await authService.requestOTP(data.email);
-      setSuccess('OTP sent to your email. Please check your inbox.');
-      setError('');
-      // Navigate to OTP verification page after a short delay
-      setTimeout(() => {
-        navigate('/verify-otp', { state: { email: data.email } });
-      }, 1000);
+      // Verify OTP - this will create a session on the backend
+      await authService.verifyOTP(email, data.otp);
+
+      // Fetch current user to get user data
+      const user = await authService.getCurrentUser();
+
+      // Update auth store (session is managed via cookies)
+      login(user, null); // No token needed for session-based auth
+
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send OTP. Please try again.');
-      setSuccess('');
+      setError(err.response?.data?.error || 'Invalid or expired OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await authService.requestOTP(email);
+      setError('');
+      // Could show success message here
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to resend OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -86,13 +116,10 @@ const Login = () => {
             component="h1"
             sx={{ fontWeight: 'bold', color: '#343A40', mb: 1 }}
           >
-            Proc2Pay
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#6C757D', mb: 0.5 }}>
-            Procure to Pay ToT & Scheme Management System
+            Verify OTP
           </Typography>
           <Typography variant="body2" sx={{ color: '#6C757D' }}>
-            by NexProcureAI
+            Enter the code sent to {email}
           </Typography>
         </Box>
 
@@ -102,21 +129,18 @@ const Login = () => {
           </Alert>
         )}
 
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
-
         <form onSubmit={handleSubmit(onSubmit)}>
           <Input
-            label="Email"
-            type="email"
-            {...register('email')}
-            error={!!errors.email}
-            helperText={errors.email?.message}
+            label="OTP Code"
+            type="text"
+            placeholder="Enter 6-digit code"
+            {...register('otp')}
+            error={!!errors.otp}
+            helperText={errors.otp?.message}
             sx={{ mb: 2 }}
-            startAdornment={<EmailIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
+            startAdornment={<KeyIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
+            autoComplete="off"
+            autoFocus
           />
 
           <Button
@@ -131,18 +155,41 @@ const Login = () => {
               '&:hover': {
                 backgroundColor: '#5A6268',
               },
+              mb: 2,
             }}
           >
-            Send OTP
+            Verify OTP
           </Button>
         </form>
 
-        <Typography variant="body2" sx={{ color: '#6C757D', mt: 2, textAlign: 'left' }}>
-          Demo credentials: admin@mail.com, OTP: 1234
-        </Typography>
+        <Button
+          fullWidth
+          variant="text"
+          size="medium"
+          onClick={handleResendOTP}
+          disabled={loading}
+          sx={{
+            color: '#6C757D',
+          }}
+        >
+          Resend OTP
+        </Button>
+
+        <Button
+          fullWidth
+          variant="text"
+          size="small"
+          onClick={() => navigate('/login')}
+          sx={{
+            mt: 1,
+            color: '#6C757D',
+          }}
+        >
+          Back to Login
+        </Button>
       </Paper>
     </Box>
   );
 };
 
-export default Login;
+export default VerifyOTP;

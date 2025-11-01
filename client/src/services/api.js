@@ -8,6 +8,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Enable cookies for session-based authentication
 });
 
 // Request interceptor to add auth token
@@ -31,7 +32,12 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token expired or invalid, logout user
       useAuthStore.getState().logout();
-      window.location.href = "/login";
+      
+      // Only redirect if not already on login or verify-otp pages
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/verify-otp') {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }

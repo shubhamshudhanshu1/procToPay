@@ -109,6 +109,8 @@ services:
     working_dir: /app
     volumes:
       - ./client:/app
+      # Exclude node_modules to use container's version and prevent file overflow
+      - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:4000
       - CHOKIDAR_USEPOLLING=1
