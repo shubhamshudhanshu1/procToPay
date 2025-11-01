@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { Email as EmailIcon } from '@mui/icons-material';
 import { authService } from '../services/authService';
 import { loginSchema } from '../schemas/authSchemas';
-import { Box, Paper, Typography, Input, Button, Alert } from '../components/ui';
+import { AuthLayout, AuthHeader, AuthAlert } from '../components/auth';
+import { Input, Button, Typography } from '../components/ui';
 
 const Login = () => {
   const [error, setError] = useState('');
@@ -30,10 +31,7 @@ const Login = () => {
       await authService.requestOTP(data.email);
       setSuccess('OTP sent to your email. Please check your inbox.');
       setError('');
-      // Navigate to OTP verification page after a short delay
-      setTimeout(() => {
-        navigate('/verify-otp', { state: { email: data.email } });
-      }, 1000);
+      navigate('/verify-otp', { state: { email: data.email } });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to send OTP. Please try again.');
       setSuccess('');
@@ -43,105 +41,44 @@ const Login = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F8F9FA',
-        padding: 2,
-      }}
-    >
-      <Paper
-        elevation={3}
-        sx={{
-          p: 4,
-          width: '100%',
-          maxWidth: 400,
-          borderRadius: 2,
-          textAlign: 'center',
-        }}
-      >
-        {/* Logo/Icon */}
-        <Box sx={{ mb: 3 }}>
-          <Box
-            sx={{
-              width: 60,
-              height: 60,
-              backgroundColor: '#6C757D',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-            }}
-          >
-            <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
-              ₹
-            </Typography>
-          </Box>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{ fontWeight: 'bold', color: '#343A40', mb: 1 }}
-          >
-            Proc2Pay
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#6C757D', mb: 0.5 }}>
-            Procure to Pay ToT & Scheme Management System
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#6C757D' }}>
-            by NexProcureAI
-          </Typography>
-        </Box>
+    <AuthLayout>
+      <AuthHeader />
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+      <AuthAlert error={error} success={success} />
 
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Input
+          label="Email"
+          type="email"
+          {...register('email')}
+          error={!!errors.email}
+          helperText={errors.email?.message}
+          sx={{ mb: 2 }}
+          startAdornment={<EmailIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
+        />
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <Input
-            label="Email"
-            type="email"
-            {...register('email')}
-            error={!!errors.email}
-            helperText={errors.email?.message}
-            sx={{ mb: 2 }}
-            startAdornment={<EmailIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
-          />
+        <Button
+          type="submit"
+          fullWidth
+          variant="contained"
+          size="large"
+          loading={loading}
+          sx={{
+            py: 1.5,
+            backgroundColor: '#6C757D',
+            '&:hover': {
+              backgroundColor: '#5A6268',
+            },
+          }}
+        >
+          Send OTP
+        </Button>
+      </form>
 
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            loading={loading}
-            sx={{
-              py: 1.5,
-              backgroundColor: '#6C757D',
-              '&:hover': {
-                backgroundColor: '#5A6268',
-              },
-            }}
-          >
-            Send OTP
-          </Button>
-        </form>
-
-        <Typography variant="body2" sx={{ color: '#6C757D', mt: 2, textAlign: 'left' }}>
-          Demo credentials: admin@mail.com, OTP: 1234
-        </Typography>
-      </Paper>
-    </Box>
+      <Typography variant="body2" sx={{ color: '#6C757D', mt: 2, textAlign: 'left' }}>
+        Demo credentials: admin@mail.com, OTP: 1234
+      </Typography>
+    </AuthLayout>
   );
 };
 

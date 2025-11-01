@@ -6,7 +6,8 @@ import { VpnKey as KeyIcon } from '@mui/icons-material';
 import { z } from 'zod';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
-import { Box, Paper, Typography, Input, Button, Alert } from '../components/ui';
+import { AuthLayout, AuthHeader, AuthAlert } from '../components/auth';
+import { Input, Button } from '../components/ui';
 
 const otpSchema = z.object({
   otp: z.string().min(4, 'OTP must be at least 4 digits').max(8, 'OTP must be at most 8 digits'),
@@ -73,122 +74,73 @@ const VerifyOTP = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F8F9FA',
-        padding: 2,
-      }}
-    >
-      <Paper
-        elevation={3}
+    <AuthLayout>
+      <AuthHeader
+        title="Verify OTP"
+        subtitle={`Enter the code sent to ${email}`}
+      />
+
+      <AuthAlert error={error} />
+
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Input
+          label="OTP Code"
+          type="text"
+          placeholder="Enter 6-digit code"
+          {...register('otp')}
+          error={!!errors.otp}
+          helperText={errors.otp?.message}
+          sx={{ mb: 2 }}
+          startAdornment={<KeyIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
+          autoComplete="off"
+          autoFocus
+        />
+
+        <Button
+          type="submit"
+          fullWidth
+          variant="contained"
+          size="large"
+          loading={loading}
+          sx={{
+            py: 1.5,
+            backgroundColor: '#6C757D',
+            '&:hover': {
+              backgroundColor: '#5A6268',
+            },
+            mb: 2,
+          }}
+        >
+          Verify OTP
+        </Button>
+      </form>
+
+      <Button
+        fullWidth
+        variant="text"
+        size="medium"
+        onClick={handleResendOTP}
+        disabled={loading}
         sx={{
-          p: 4,
-          width: '100%',
-          maxWidth: 400,
-          borderRadius: 2,
-          textAlign: 'center',
+          color: '#6C757D',
         }}
       >
-        {/* Logo/Icon */}
-        <Box sx={{ mb: 3 }}>
-          <Box
-            sx={{
-              width: 60,
-              height: 60,
-              backgroundColor: '#6C757D',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-            }}
-          >
-            <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
-              ₹
-            </Typography>
-          </Box>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{ fontWeight: 'bold', color: '#343A40', mb: 1 }}
-          >
-            Verify OTP
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#6C757D' }}>
-            Enter the code sent to {email}
-          </Typography>
-        </Box>
+        Resend OTP
+      </Button>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <Input
-            label="OTP Code"
-            type="text"
-            placeholder="Enter 6-digit code"
-            {...register('otp')}
-            error={!!errors.otp}
-            helperText={errors.otp?.message}
-            sx={{ mb: 2 }}
-            startAdornment={<KeyIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
-            autoComplete="off"
-            autoFocus
-          />
-
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            loading={loading}
-            sx={{
-              py: 1.5,
-              backgroundColor: '#6C757D',
-              '&:hover': {
-                backgroundColor: '#5A6268',
-              },
-              mb: 2,
-            }}
-          >
-            Verify OTP
-          </Button>
-        </form>
-
-        <Button
-          fullWidth
-          variant="text"
-          size="medium"
-          onClick={handleResendOTP}
-          disabled={loading}
-          sx={{
-            color: '#6C757D',
-          }}
-        >
-          Resend OTP
-        </Button>
-
-        <Button
-          fullWidth
-          variant="text"
-          size="small"
-          onClick={() => navigate('/login')}
-          sx={{
-            mt: 1,
-            color: '#6C757D',
-          }}
-        >
-          Back to Login
-        </Button>
-      </Paper>
-    </Box>
+      <Button
+        fullWidth
+        variant="text"
+        size="small"
+        onClick={() => navigate('/login')}
+        sx={{
+          mt: 1,
+          color: '#6C757D',
+        }}
+      >
+        Back to Login
+      </Button>
+    </AuthLayout>
   );
 };
 
