@@ -50,8 +50,8 @@ services:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/proctopay
       - REDIS_URL=redis://redis:6379
       - SESSION_SECRET=your-32-byte-secret-key-here-change-in-production
-      - APP_URL=https://app.localhost:3000
-      - API_URL=https://api.localhost:4000
+      - APP_URL=http://localhost:3000
+      - API_URL=http://localhost:4000
       - MAIL_FROM=shubham34934@gmail.com
       - AUTH_MODE=otp
       - OTP_LENGTH=6
