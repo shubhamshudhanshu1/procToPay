@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { useAuthStore } from './store/authStore';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -26,6 +27,7 @@ function App() {
           <AuthInitializer>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/verify-otp" element={<VerifyOTP />} />
               <Route
                 path="/dashboard"

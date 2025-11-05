@@ -1,21 +1,31 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState, useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { Email as EmailIcon } from '@mui/icons-material';
 import { authService } from '../services/authService';
 import { loginSchema } from '../schemas/authSchemas';
+import { useAuthStore } from '../store/authStore';
 import { AuthLayout, AuthHeader, AuthAlert } from '../components/auth';
-import { Input, Button, Typography } from '../components/ui';
+import { EmailOrPhoneInput, Button, Typography, Link } from '../components/ui';
+import { Link as RouterLink } from 'react-router-dom';
 
 const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  const [inputType, setInputType] = useState(null); // Track detected type (email/phone)
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm({
@@ -29,9 +39,13 @@ const Login = () => {
 
     try {
       await authService.requestOTP(data.email);
-      setSuccess('OTP sent to your email. Please check your inbox.');
+      const message =
+        inputType === 'phone'
+          ? 'OTP sent to your phone. Please check your messages.'
+          : 'OTP sent to your email. Please check your inbox.';
+      setSuccess(message);
       setError('');
-      navigate('/verify-otp', { state: { email: data.email } });
+      navigate('/verify-otp', { state: { email: data.email, type: inputType } });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to send OTP. Please try again.');
       setSuccess('');
@@ -47,14 +61,24 @@ const Login = () => {
       <AuthAlert error={error} success={success} />
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Input
-          label="Email"
-          type="email"
-          {...register('email')}
-          error={!!errors.email}
-          helperText={errors.email?.message}
-          sx={{ mb: 2 }}
-          startAdornment={<EmailIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
+        <Controller
+          name="email"
+          control={control}
+          render={({ field }) => (
+            <EmailOrPhoneInput
+              label="Email or Phone"
+              placeholder="Enter your email or phone number"
+              value={field.value || ''}
+              onChange={(value, type) => {
+                field.onChange(value);
+                setInputType(type);
+              }}
+              error={!!errors.email}
+              helperText={errors.email?.message}
+              required
+              sx={{ mb: 2 }}
+            />
+          )}
         />
 
         <Button
@@ -75,8 +99,11 @@ const Login = () => {
         </Button>
       </form>
 
-      <Typography variant="body2" sx={{ color: '#6C757D', mt: 2, textAlign: 'left' }}>
-        Demo credentials: admin@mail.com, OTP: 1234
+      <Typography sx={{ mt: 3, textAlign: 'center', color: 'text.secondary' }}>
+        Don't have an account?{' '}
+        <Link component={RouterLink} to="/register" sx={{ fontWeight: 600 }}>
+          Register
+        </Link>
       </Typography>
     </AuthLayout>
   );

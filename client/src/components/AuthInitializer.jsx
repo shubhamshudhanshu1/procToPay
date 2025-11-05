@@ -10,12 +10,13 @@ const AuthInitializer = ({ children }) => {
 
   useEffect(() => {
     // Only check once on mount, and only if not authenticated
-    // Skip check if we're on login or verify-otp pages
+    // Skip check if we're on auth pages (login, register, verify-otp)
+    const isAuthPage = ['/login', '/register', '/verify-otp'].includes(location.pathname);
+    
     if (
       !hasCheckedRef.current &&
       !isAuthenticated &&
-      location.pathname !== '/login' &&
-      location.pathname !== '/verify-otp'
+      !isAuthPage
     ) {
       hasCheckedRef.current = true;
       
