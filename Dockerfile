@@ -19,6 +19,10 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Copy and set up entrypoint script
+COPY scripts/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Generate Prisma client
 RUN pnpm db:generate
 
@@ -40,5 +44,6 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:4000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
-# Start the application
+# Use entrypoint script to run migrations before starting app
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "dist/server.js"]

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -42,9 +40,11 @@ services:
       MH_STORAGE: maildir
       MH_MAILDIR_PATH: /maildir
 
-  # Application
+  # Backend API (Production)
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/proctopay
@@ -66,6 +66,8 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+    # Entrypoint script handles migrations automatically before app starts
+    # CMD is set in Dockerfile: node dist/server.js
 
 volumes:
   postgres_data:

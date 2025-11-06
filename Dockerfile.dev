@@ -19,6 +19,10 @@ RUN pnpm install
 # Copy source code
 COPY . .
 
+# Copy and set up entrypoint script
+COPY scripts/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Generate Prisma client (with SSL workaround)
 RUN NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm db:generate
 
@@ -34,5 +38,9 @@ USER nodejs
 EXPOSE 4000
 EXPOSE 9229
 
-# Default command (will be overridden by docker-compose)
+# Use entrypoint script (consistent with production)
+# Migrations will run automatically before command executes
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+# Default command (can be overridden by docker-compose)
 CMD ["npm", "run", "dev"]

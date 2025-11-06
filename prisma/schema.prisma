@@ -13,29 +13,58 @@ datasource db {
 
 model User {
   id              String    @id @default(cuid())
-  email           String    @unique
+  email           String?   @unique
+  phoneNumber     String?   @unique
+  firstName       String
+  lastName        String
   emailVerifiedAt DateTime?
-  createdVia      String
+  phoneVerifiedAt DateTime?
   status          String    @default("active")
   tokenVersion    Int       @default(1)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  // Ensure at least one contact method exists
+  @@index([email])
+  @@index([phoneNumber])
   @@map("users")
 }
 
-model LoginToken {
-  id         String    @id @default(cuid())
-  email      String
-  token      String    @unique
-  kind       String    // 'otp' | 'magic'
-  ipHash     String?
-  uaHash     String?
-  usedAt     DateTime?
-  expiresAt  DateTime
-  createdAt  DateTime  @default(now())
+model OTPToken {
+  id          String   @id @default(cuid())
+  contact     String   // Email or phone number (normalized)
+  contactType String   // 'email' | 'phone'
+  tokenHash   String   // Hashed OTP (HMAC-SHA256)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  ipHash      String?
+  uaHash      String?
+  status      String   @default("pending") // 'pending' | 'verified' | 'failed' | 'expired'
+  failedReason String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  @@index([email])
+  @@index([contact, contactType])
   @@index([expiresAt])
-  @@map("login_tokens")
+  @@index([status])
+  @@map("otp_tokens")
+}
+
+model Configuration {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "otp.length"
+  value       String   // Stored as JSON string
+  type        String   // 'number' | 'string' | 'boolean' | 'json'
+  description String?
+  category    String   // 'otp' | 'rate_limit' | 'security' | 'feature' | 'contact'
+  isActive    Boolean  @default(true)
+  updatedBy   String?  // User ID who updated
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+  @@index([category])
+  @@map("configurations")
 }
