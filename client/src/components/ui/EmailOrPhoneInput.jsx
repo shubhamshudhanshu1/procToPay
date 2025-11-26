@@ -21,6 +21,8 @@ export default function CombinedContactInput({
   onChange,
   required = false,
   fullWidth = true,
+  error = false,
+  helperText = '',
   sx,
 }) {
   const [uncontrolledValue, setUncontrolledValue] = React.useState('');
@@ -29,21 +31,28 @@ export default function CombinedContactInput({
   const kind = detectKind(value);
   const valid = validate(value, kind, { required });
 
+  // Dynamic label based on detected type
+  const dynamicLabel = React.useMemo(() => {
+    if (kind === 'email') return 'Email';
+    if (kind === 'phone') return 'Phone Number';
+    return label; // Use provided label when unknown
+  }, [kind, label]);
+
   const handleChange = (e) => {
     const v = e.target.value;
     if (controlledValue === undefined) setUncontrolledValue(v);
     const detectedKind = detectKind(v);
-    onChange?.(v, { kind: detectedKind, valid: validate(v, detectedKind, { required }) });
+    onChange?.(v, detectedKind);
   };
 
   // Notify parent of validation status changes (for initial mount and when validation changes)
   React.useEffect(() => {
-    onChange?.(value, { kind, valid });
-  }, [kind, valid]); // eslint-disable-line react-hooks/exhaustive-deps
+    onChange?.(value, kind);
+  }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <TextField
-      label={label}
+      label={dynamicLabel}
       value={value}
       onChange={handleChange}
       required={required}
@@ -51,8 +60,8 @@ export default function CombinedContactInput({
       placeholder={placeholder}
       variant="outlined"
       InputLabelProps={{ shrink: true }}
-      error={false}
-      helperText=""
+      error={error}
+      helperText={helperText}
       sx={sx}
       inputProps={{
         inputMode: kind === 'phone' ? 'tel' : 'email',

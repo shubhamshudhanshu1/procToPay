@@ -2,12 +2,12 @@ import api from './api';
 
 export const authService = {
   requestOTP: async (email) => {
-    const response = await api.post('/auth/request', { email });
+    const response = await api.post('/auth/login/request', { email });
     return response.data;
   },
 
   verifyOTP: async (email, otp) => {
-    const response = await api.post('/auth/verify', { email, otp });
+    const response = await api.post('/auth/login/verify', { email, otp });
     return response.data;
   },
 

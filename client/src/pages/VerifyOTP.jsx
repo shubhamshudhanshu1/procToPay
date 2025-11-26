@@ -10,7 +10,10 @@ import { AuthLayout, AuthHeader, AuthAlert } from '../components/auth';
 import { Input, Button, Typography, Box } from '../components/ui';
 
 const otpSchema = z.object({
-  otp: z.string().min(4, 'OTP must be at least 4 digits').max(8, 'OTP must be at most 8 digits'),
+  otp: z
+    .string()
+    .length(6, 'OTP must be exactly 6 digits')
+    .regex(/^\d+$/, 'OTP must contain only numbers'),
 });
 
 const VerifyOTP = () => {
@@ -30,9 +33,15 @@ const VerifyOTP = () => {
   // For registration: { email?: string, phoneNumber?: string, verifyBoth?: boolean }
   const contacts = location.state;
 
-  // Early return if no contacts
+  // Redirect back if no state (e.g., on page refresh)
+  useEffect(() => {
+    if (!contacts || (!contacts.email && !contacts.phoneNumber)) {
+      navigate(-1); // Go back one page in history
+    }
+  }, [contacts, navigate]);
+
+  // Early return if no contacts (will redirect via useEffect)
   if (!contacts || (!contacts.email && !contacts.phoneNumber)) {
-    navigate('/login');
     return null;
   }
 
@@ -98,9 +107,19 @@ const VerifyOTP = () => {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
+    watch,
   } = useForm({
     resolver: zodResolver(otpSchema),
   });
+
+  const otpValue = watch('otp', '');
+
+  // Handle OTP input to only allow numeric and limit to 6 digits
+  const handleOTPChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setValue('otp', value, { shouldValidate: true });
+  };
 
   const onSubmit = async (data) => {
     setError('');
@@ -249,14 +268,20 @@ const VerifyOTP = () => {
         <Input
           label={`Enter OTP sent to your ${currentContact.type === 'email' ? 'email' : 'phone'}`}
           type="text"
-          placeholder="Enter OTP code"
-          {...register('otp')}
+          placeholder="Enter 6-digit OTP"
+          value={otpValue}
+          onChange={handleOTPChange}
           error={!!errors.otp}
           helperText={errors.otp?.message}
           sx={{ mb: 2 }}
           startAdornment={<KeyIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
           autoComplete="off"
           autoFocus
+          inputProps={{
+            maxLength: 6,
+            inputMode: 'numeric',
+            pattern: '[0-9]*',
+          }}
         />
 
         <Button
