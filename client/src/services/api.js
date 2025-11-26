@@ -1,12 +1,12 @@
-import axios from "axios";
-import { useAuthStore } from "../store/authStore";
+import axios from 'axios';
+import { useAuthStore } from '../store/authStore';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL + '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   },
   withCredentials: true, // Enable cookies for session-based authentication
 });
@@ -32,11 +32,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token expired or invalid, logout user
       useAuthStore.getState().logout();
-      
+
       // Only redirect if not already on login or verify-otp pages
       const currentPath = window.location.pathname;
       if (currentPath !== '/login' && currentPath !== '/verify-otp') {
-        window.location.href = "/login";
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

@@ -7,29 +7,119 @@ const prisma = new PrismaClient();
  */
 const defaultConfigs = [
   // OTP Configuration
-  { key: 'otp.length', value: '6', type: 'number' as const, category: 'otp', description: 'OTP code length (4-8 digits)' },
-  { key: 'otp.expiry_seconds', value: '600', type: 'number' as const, category: 'otp', description: 'OTP expiry time in seconds' },
-  { key: 'otp.max_attempts', value: '3', type: 'number' as const, category: 'otp', description: 'Maximum verification attempts per OTP' },
-  { key: 'otp.hardcoded_enabled', value: 'false', type: 'boolean' as const, category: 'otp', description: 'Enable hardcoded OTP (uses last 4 digits of phone for testing)' },
+  {
+    key: 'otp.length',
+    value: '6',
+    type: 'number' as const,
+    category: 'otp',
+    description: 'OTP code length (4-8 digits)',
+  },
+  {
+    key: 'otp.expiry_seconds',
+    value: '600',
+    type: 'number' as const,
+    category: 'otp',
+    description: 'OTP expiry time in seconds',
+  },
+  {
+    key: 'otp.max_attempts',
+    value: '3',
+    type: 'number' as const,
+    category: 'otp',
+    description: 'Maximum verification attempts per OTP',
+  },
+  {
+    key: 'otp.hardcoded_enabled',
+    value: 'false',
+    type: 'boolean' as const,
+    category: 'otp',
+    description: 'Enable hardcoded OTP (uses last 4 digits of phone for testing)',
+  },
 
   // Rate Limiting Configuration
-  { key: 'rate_limit.otp_request_per_hour', value: '5', type: 'number' as const, category: 'rate_limit', description: 'OTP requests per hour per contact' },
-  { key: 'rate_limit.ip_per_hour', value: '10', type: 'number' as const, category: 'rate_limit', description: 'Requests per hour per IP address' },
-  { key: 'rate_limit.verify_per_10min', value: '3', type: 'number' as const, category: 'rate_limit', description: 'Verification attempts per 10 minutes' },
-  { key: 'rate_limit.resend_seconds', value: '60', type: 'number' as const, category: 'rate_limit', description: 'Minimum seconds between resend requests' },
+  {
+    key: 'rate_limit.otp_request_per_hour',
+    value: '5',
+    type: 'number' as const,
+    category: 'rate_limit',
+    description: 'OTP requests per hour per contact',
+  },
+  {
+    key: 'rate_limit.ip_per_hour',
+    value: '10',
+    type: 'number' as const,
+    category: 'rate_limit',
+    description: 'Requests per hour per IP address',
+  },
+  {
+    key: 'rate_limit.verify_per_10min',
+    value: '3',
+    type: 'number' as const,
+    category: 'rate_limit',
+    description: 'Verification attempts per 10 minutes',
+  },
+  {
+    key: 'rate_limit.resend_seconds',
+    value: '60',
+    type: 'number' as const,
+    category: 'rate_limit',
+    description: 'Minimum seconds between resend requests',
+  },
 
   // Contact Configuration
-  { key: 'contact.default_country_code', value: '+1', type: 'string' as const, category: 'contact', description: 'Default country code for phone numbers' },
-  { key: 'contact.email_enabled', value: 'true', type: 'boolean' as const, category: 'contact', description: 'Enable email authentication' },
-  { key: 'contact.phone_enabled', value: 'true', type: 'boolean' as const, category: 'contact', description: 'Enable phone authentication' },
+  {
+    key: 'contact.default_country_code',
+    value: '+1',
+    type: 'string' as const,
+    category: 'contact',
+    description: 'Default country code for phone numbers',
+  },
+  {
+    key: 'contact.email_enabled',
+    value: 'true',
+    type: 'boolean' as const,
+    category: 'contact',
+    description: 'Enable email authentication',
+  },
+  {
+    key: 'contact.phone_enabled',
+    value: 'true',
+    type: 'boolean' as const,
+    category: 'contact',
+    description: 'Enable phone authentication',
+  },
 
   // Security Configuration
-  { key: 'security.session_ttl_seconds', value: '86400', type: 'number' as const, category: 'security', description: 'Session expiry time in seconds (24 hours)' },
+  {
+    key: 'security.session_ttl_seconds',
+    value: '86400',
+    type: 'number' as const,
+    category: 'security',
+    description: 'Session expiry time in seconds (24 hours)',
+  },
 
   // Feature Flags
-  { key: 'feature.registration_enabled', value: 'true', type: 'boolean' as const, category: 'feature', description: 'Enable user registration' },
-  { key: 'feature.login_enabled', value: 'true', type: 'boolean' as const, category: 'feature', description: 'Enable user login' },
-  { key: 'feature.sms_enabled', value: 'false', type: 'boolean' as const, category: 'feature', description: 'Enable SMS OTP delivery' },
+  {
+    key: 'feature.registration_enabled',
+    value: 'true',
+    type: 'boolean' as const,
+    category: 'feature',
+    description: 'Enable user registration',
+  },
+  {
+    key: 'feature.login_enabled',
+    value: 'true',
+    type: 'boolean' as const,
+    category: 'feature',
+    description: 'Enable user login',
+  },
+  {
+    key: 'feature.sms_enabled',
+    value: 'false',
+    type: 'boolean' as const,
+    category: 'feature',
+    description: 'Enable SMS OTP delivery',
+  },
 ];
 
 async function main() {
@@ -67,6 +157,9 @@ async function main() {
 main()
   .catch((e) => {
     console.error('❌ Seeding failed:', e);
+    console.error('Stack:', e.stack);
+    // Exit with error code so entrypoint knows it failed
+    // Entrypoint will handle gracefully
     process.exit(1);
   })
   .finally(async () => {

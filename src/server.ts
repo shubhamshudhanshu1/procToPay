@@ -6,7 +6,8 @@ import session from 'express-session';
 // import csurf from 'csurf';
 import { env } from './config/env';
 import { sessionConfig } from './config/session';
-import authRoutes from './routes/auth';
+import authRoutes from './routes/authRoutes';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import meRoutes from './routes/me';
 import { getCSRFToken } from './middleware/csrf';
 
@@ -68,32 +69,14 @@ app.get('/health', (_req, res) => {
 app.get('/csrf', getCSRFToken);
 
 // Routes
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/me', meRoutes);
 
 // 404 handler
-app.use('*', (_req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
+app.use('*', notFoundHandler);
 
-// Error handler
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error:', err);
-
-  if (err.code === 'EBADCSRFTOKEN') {
-    res.status(403).json({ error: 'Invalid CSRF token' });
-    return;
-  }
-
-  if (err.name === 'ValidationError') {
-    res.status(400).json({ error: 'Validation error', details: err.message });
-    return;
-  }
-
-  res.status(500).json({
-    error: env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
-  });
-});
+// Error handler (must be last)
+app.use(errorHandler);
 
 const PORT = env.PORT;
 

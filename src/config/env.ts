@@ -21,6 +21,11 @@ const envSchema = z.object({
   MAIL_FROM: z.string().email(),
   SENDGRID_API_KEY: z.string().optional(),
   
+  // SMS Configuration (Twilio)
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
+  
   // Authentication Configuration
   AUTH_MODE: z.enum(['otp', 'magic']).default('otp'),
   OTP_LENGTH: z.coerce.number().min(4).max(8).default(6),

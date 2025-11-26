@@ -7,15 +7,17 @@ const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379');
 
 beforeAll(async () => {
   // Clean up before tests
-  await prisma.loginToken.deleteMany();
+  await prisma.otpToken.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.configuration.deleteMany();
   await redis.flushall();
 });
 
 afterAll(async () => {
   // Clean up after tests
-  await prisma.loginToken.deleteMany();
+  await prisma.otpToken.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.configuration.deleteMany();
   await redis.flushall();
   await prisma.$disconnect();
   await redis.disconnect();
@@ -23,7 +25,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Clean up between tests
-  await prisma.loginToken.deleteMany();
+  await prisma.otpToken.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.configuration.deleteMany();
   await redis.flushall();
 });

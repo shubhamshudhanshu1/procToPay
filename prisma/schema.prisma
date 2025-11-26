@@ -30,7 +30,7 @@ model User {
   @@map("users")
 }
 
-model OTPToken {
+model OtpToken {
   id          String   @id @default(cuid())
   contact     String   // Email or phone number (normalized)
   contactType String   // 'email' | 'phone'
