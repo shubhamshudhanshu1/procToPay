@@ -98,12 +98,38 @@ class AuthService {
       where: {
         OR: orConditions,
       },
+      select: {
+        id: true,
+        email: true,
+        phoneNumber: true,
+        emailVerifiedAt: true,
+        phoneVerifiedAt: true,
+        status: true,
+      },
     });
 
     if (!user) {
-      // Don't reveal if user exists (security best practice)
-      // Still generate OTP to prevent user enumeration
+      throw new Error('User not found. Please register first.');
     }
+
+    // Check if user is active (verified) - pending users should complete registration first
+    if (user.status === 'pending') {
+      throw new Error('Your account is pending verification. Please complete registration first.');
+    }
+
+    // Check if the requested contact method is verified
+    if (contactType === 'email') {
+      if (!user.emailVerifiedAt) {
+        throw new Error('Email is not verified. Please login with your phone number.');
+      }
+    } else {
+      if (!user.phoneVerifiedAt) {
+        throw new Error('Phone number is not verified. Please login with your email.');
+      }
+    }
+
+    // Get OTP config to check if hardcoded OTP is enabled
+    const otpConfig = await configService.getOTPConfig();
 
     // Generate OTP
     const otp = await otpService.generateOTP(normalizedContact, contactType, ipAddress, userAgent);
@@ -112,10 +138,21 @@ class AuthService {
     if (contactType === 'email') {
       await emailService.sendOTP(normalizedContact, otp);
     } else {
-      if (!smsService.isAvailable()) {
-        throw new Error('SMS service is not available.');
+      // Skip SMS if hardcoded OTP is enabled (OTP is already known - last N digits of phone)
+      if (!otpConfig.hardcodedEnabled) {
+        if (!smsService.isAvailable()) {
+          throw new Error('SMS service is not available.');
+        }
+        await smsService.sendOTP(normalizedContact, otp);
+      } else {
+        // Hardcoded OTP enabled - log to console for development
+        console.log('='.repeat(60));
+        console.log('📱 Hardcoded OTP (Phone)');
+        console.log('='.repeat(60));
+        console.log(`Phone: ${normalizedContact}`);
+        console.log(`OTP: ${otp} (last ${otpConfig.length} digits of phone)`);
+        console.log('='.repeat(60));
       }
-      await smsService.sendOTP(normalizedContact, otp);
     }
 
     return {
@@ -191,6 +228,16 @@ class AuthService {
       where: {
         OR: orConditions,
       },
+      select: {
+        id: true,
+        email: true,
+        phoneNumber: true,
+        firstName: true,
+        lastName: true,
+        emailVerifiedAt: true,
+        phoneVerifiedAt: true,
+        status: true,
+      },
     });
 
     if (!user) {
@@ -203,6 +250,16 @@ class AuthService {
       updateData.emailVerifiedAt = new Date();
     } else {
       updateData.phoneVerifiedAt = new Date();
+    }
+
+    // If user is pending and now has at least one verified channel, activate them
+    if (user.status === 'pending') {
+      const hasEmailVerified = contactType === 'email' || user.emailVerifiedAt;
+      const hasPhoneVerified = contactType === 'phone' || user.phoneVerifiedAt;
+
+      if (hasEmailVerified || hasPhoneVerified) {
+        updateData.status = 'active'; // Activate user after first verification
+      }
     }
 
     await prisma.user.update({
@@ -244,8 +301,8 @@ class AuthService {
   async register(
     firstName: string,
     lastName: string,
-    email?: string,
-    phoneNumber?: string,
+    email: string,
+    phoneNumber: string,
     ipAddress?: string,
     userAgent?: string
   ): Promise<{
@@ -259,58 +316,67 @@ class AuthService {
       throw new Error('Registration is currently disabled.');
     }
 
-    // Validate at least one contact method
-    if (!email && !phoneNumber) {
-      throw new Error('Either email or phone number is required.');
+    // Validate both contact methods are provided
+    if (!email || !phoneNumber) {
+      throw new Error('Both email and phone number are required.');
     }
 
-    // Normalize and validate contacts
-    let normalizedEmail: string | undefined;
-    let normalizedPhone: string | undefined;
-
-    if (email) {
-      normalizedEmail = contactService.normalizeEmail(email);
-      if (!contactService.validateEmail(normalizedEmail)) {
-        throw new Error('Invalid email address.');
-      }
+    // Normalize and validate contacts (both are required)
+    const normalizedEmail = contactService.normalizeEmail(email);
+    if (!contactService.validateEmail(normalizedEmail)) {
+      throw new Error('Invalid email address.');
     }
 
-    if (phoneNumber) {
-      normalizedPhone = await contactService.normalizePhone(phoneNumber);
-      if (!(await contactService.validatePhone(normalizedPhone))) {
-        throw new Error('Invalid phone number.');
-      }
+    const normalizedPhone = await contactService.normalizePhone(phoneNumber);
+    if (!(await contactService.validatePhone(normalizedPhone))) {
+      throw new Error('Invalid phone number.');
     }
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
-          ...(normalizedPhone ? [{ phoneNumber: normalizedPhone }] : []),
-        ],
+        OR: [{ email: normalizedEmail }, { phoneNumber: normalizedPhone }],
       },
     });
 
+    let user;
     if (existingUser) {
-      throw new Error('User with this email or phone number already exists.');
+      // If user exists but is pending (not verified), allow re-registration
+      // This handles the case where user started registration but didn't complete verification
+      if (
+        existingUser.status === 'pending' &&
+        !existingUser.emailVerifiedAt &&
+        !existingUser.phoneVerifiedAt
+      ) {
+        // Update existing pending user with new registration data
+        user = await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            firstName,
+            lastName,
+            email: normalizedEmail,
+            phoneNumber: normalizedPhone,
+            emailVerifiedAt: null, // Reset verification
+            phoneVerifiedAt: null, // Reset verification
+            status: 'pending', // Ensure status is pending
+          },
+        });
+      } else {
+        // User exists and is verified/active, cannot register again
+        throw new Error('User with this email or phone number already exists.');
+      }
+    } else {
+      // Create new user with pending status (will be activated after verification)
+      user = await prisma.user.create({
+        data: {
+          firstName,
+          lastName,
+          email: normalizedEmail,
+          phoneNumber: normalizedPhone,
+          status: 'pending', // Start as pending until verification
+        },
+      });
     }
-
-    // Create user
-    const createData: any = {
-      firstName,
-      lastName,
-    };
-    if (normalizedEmail) {
-      createData.email = normalizedEmail;
-    }
-    if (normalizedPhone) {
-      createData.phoneNumber = normalizedPhone;
-    }
-
-    const user = await prisma.user.create({
-      data: createData,
-    });
 
     // Determine which contact to use for OTP (prefer email)
     const contactType: 'email' | 'phone' = normalizedEmail ? 'email' : 'phone';
@@ -337,6 +403,9 @@ class AuthService {
       }
     }
 
+    // Get OTP config to check if hardcoded OTP is enabled
+    const otpConfig = await configService.getOTPConfig();
+
     // Generate OTP
     const otp = await otpService.generateOTP(normalizedContact, contactType, ipAddress, userAgent);
 
@@ -344,10 +413,21 @@ class AuthService {
     if (contactType === 'email') {
       await emailService.sendOTP(normalizedContact, otp);
     } else {
-      if (!smsService.isAvailable()) {
-        throw new Error('SMS service is not available.');
+      // Skip SMS if hardcoded OTP is enabled (OTP is already known - last N digits of phone)
+      if (!otpConfig.hardcodedEnabled) {
+        if (!smsService.isAvailable()) {
+          throw new Error('SMS service is not available.');
+        }
+        await smsService.sendOTP(normalizedContact, otp);
+      } else {
+        // Hardcoded OTP enabled - log to console for development
+        console.log('='.repeat(60));
+        console.log('📱 Hardcoded OTP (Phone)');
+        console.log('='.repeat(60));
+        console.log(`Phone: ${normalizedContact}`);
+        console.log(`OTP: ${otp} (last ${otpConfig.length} digits of phone)`);
+        console.log('='.repeat(60));
       }
-      await smsService.sendOTP(normalizedContact, otp);
     }
 
     return {

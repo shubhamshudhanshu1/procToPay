@@ -31,15 +31,20 @@ class OTPService {
   }
 
   /**
-   * Generate hardcoded OTP (last 4 digits of phone number)
+   * Generate hardcoded OTP (last N digits of phone number, where N is configured OTP length)
    *
    * @param phone Phone number in E.164 format
-   * @returns Last 4 digits as OTP
+   * @param length OTP length from configuration
+   * @returns Last N digits as OTP (padded with leading zeros if phone is shorter)
    */
-  private getHardcodedOTP(phone: string): string {
-    // Remove + and get last 4 digits
+  private getHardcodedOTP(phone: string, length: number): string {
+    // Remove + and get last N digits
     const digitsOnly = phone.replace(/[^\d]/g, '');
-    return digitsOnly.slice(-4);
+    const lastDigits = digitsOnly.slice(-length);
+
+    // If phone number is shorter than required length, pad with leading zeros
+    // This ensures the OTP always matches the configured length
+    return lastDigits.padStart(length, '0');
   }
 
   /**
@@ -103,7 +108,7 @@ class OTPService {
     // Generate OTP (hardcoded or secure)
     let otp: string;
     if (otpConfig.hardcodedEnabled && contactType === 'phone') {
-      otp = this.getHardcodedOTP(normalizedContact);
+      otp = this.getHardcodedOTP(normalizedContact, otpConfig.length);
     } else {
       otp = this.generateSecureOTP(otpConfig.length);
     }
@@ -176,7 +181,54 @@ class OTPService {
         ? contactService.normalizeEmail(contact)
         : await contactService.normalizePhone(contact);
 
-    // Find OTP token in database
+    // Get OTP config to check if hardcoded OTP is enabled
+    const otpConfig = await configService.getOTPConfig();
+
+    // For hardcoded OTP (phone only), verify directly against phone number
+    if (otpConfig.hardcodedEnabled && contactType === 'phone') {
+      const expectedOTP = this.getHardcodedOTP(normalizedContact, otpConfig.length);
+      if (otp === expectedOTP) {
+        // Hardcoded OTP is valid - find and mark the most recent OTP token as verified
+        // This allows us to track verification in the database for audit purposes
+        const otpToken = await prisma.otpToken.findFirst({
+          where: {
+            contact: normalizedContact,
+            contactType,
+            status: 'pending',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
+        if (otpToken) {
+          // Mark as verified for audit trail
+          await prisma.otpToken.update({
+            where: { id: otpToken.id },
+            data: {
+              status: 'verified',
+              usedAt: new Date(),
+              attempts: otpToken.attempts + 1,
+            },
+          });
+
+          // Remove from Redis
+          await redis.del(`${this.redisPrefix}${otpToken.id}`);
+          await redis.del(`${this.redisPrefix}contact:${contactType}:${normalizedContact}`);
+        }
+
+        return {
+          valid: true,
+        };
+      } else {
+        return {
+          valid: false,
+          reason: 'invalid',
+        };
+      }
+    }
+
+    // For non-hardcoded OTP, check database expiry
     const otpToken = await prisma.otpToken.findFirst({
       where: {
         contact: normalizedContact,

@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Container,
   Paper,
@@ -16,13 +17,14 @@ import {
   Menu,
   MenuItem,
   Avatar,
-} from "@mui/material";
-import { AccountCircle, Logout } from "@mui/icons-material";
-import { useAuthStore } from "../store/authStore";
-import { authService } from "../services/authService";
-import { profileSchema } from "../schemas/authSchemas";
+} from '@mui/material';
+import { AccountCircle, Logout } from '@mui/icons-material';
+import { useAuthStore } from '../store/authStore';
+import { authService } from '../services/authService';
+import { profileSchema } from '../schemas/authSchemas';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const { user, logout, updateUser } = useAuthStore();
@@ -36,23 +38,25 @@ const Dashboard = () => {
   } = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: user?.name || "",
-      email: user?.email || "",
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+      email: user?.email || '',
     },
   });
 
   const { data: profileData, isLoading } = useQuery({
-    queryKey: ["profile"],
-    queryFn: authService.getProfile,
+    queryKey: ['profile'],
+    queryFn: authService.getCurrentUser, // Use /api/me instead of /users/profile
     enabled: !!user,
   });
 
   const updateProfileMutation = useMutation({
     mutationFn: authService.updateProfile,
     onSuccess: (data) => {
-      updateUser(data.user);
+      // /me PUT returns user object directly (not wrapped in 'user')
+      updateUser(data.user || data);
       setEditMode(false);
-      queryClient.invalidateQueries(["profile"]);
+      queryClient.invalidateQueries(['profile']);
     },
   });
 
@@ -64,9 +68,13 @@ const Dashboard = () => {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
     handleMenuClose();
+    await logout();
+    // Clear all queries to prevent stale data
+    queryClient.clear();
+    // Navigate to login page
+    navigate('/login');
   };
 
   const onSubmit = (data) => {
@@ -76,8 +84,9 @@ const Dashboard = () => {
   const handleEdit = () => {
     setEditMode(true);
     reset({
-      name: profileData?.user?.name || "",
-      email: profileData?.user?.email || "",
+      firstName: profileData?.firstName || user?.firstName || '',
+      lastName: profileData?.lastName || user?.lastName || '',
+      email: profileData?.email || user?.email || '',
     });
   };
 
@@ -111,21 +120,20 @@ const Dashboard = () => {
             color="inherit"
           >
             <Avatar sx={{ width: 32, height: 32 }}>
-              {user?.name?.charAt(0)?.toUpperCase() ||
-                user?.email?.charAt(0)?.toUpperCase()}
+              {user?.firstName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase()}
             </Avatar>
           </IconButton>
           <Menu
             id="menu-appbar"
             anchorEl={anchorEl}
             anchorOrigin={{
-              vertical: "top",
-              horizontal: "right",
+              vertical: 'top',
+              horizontal: 'right',
             }}
             keepMounted
             transformOrigin={{
-              vertical: "top",
-              horizontal: "right",
+              vertical: 'top',
+              horizontal: 'right',
             }}
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
@@ -141,13 +149,12 @@ const Dashboard = () => {
       <Container maxWidth="md" className="py-8">
         <Paper elevation={3} className="p-6">
           <Typography variant="h4" component="h1" className="mb-6">
-            Welcome, {profileData?.user?.name || user?.name}!
+            Welcome, {profileData?.firstName || user?.firstName || user?.email}!
           </Typography>
 
           {updateProfileMutation.error && (
             <Alert severity="error" className="mb-4">
-              {updateProfileMutation.error.response?.data?.error ||
-                "An error occurred"}
+              {updateProfileMutation.error.response?.data?.error || 'An error occurred'}
             </Alert>
           )}
 
@@ -161,10 +168,19 @@ const Dashboard = () => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <TextField
                 fullWidth
-                label="Name"
-                {...register("name")}
-                error={!!errors.name}
-                helperText={errors.name?.message}
+                label="First Name"
+                {...register('firstName')}
+                error={!!errors.firstName}
+                helperText={errors.firstName?.message}
+                className="mb-4"
+              />
+
+              <TextField
+                fullWidth
+                label="Last Name"
+                {...register('lastName')}
+                error={!!errors.lastName}
+                helperText={errors.lastName?.message}
                 className="mb-4"
               />
 
@@ -172,7 +188,7 @@ const Dashboard = () => {
                 fullWidth
                 label="Email"
                 type="email"
-                {...register("email")}
+                {...register('email')}
                 error={!!errors.email}
                 helperText={errors.email?.message}
                 className="mb-4"
@@ -184,7 +200,7 @@ const Dashboard = () => {
                   variant="contained"
                   disabled={updateProfileMutation.isPending}
                 >
-                  {updateProfileMutation.isPending ? "Saving..." : "Save"}
+                  {updateProfileMutation.isPending ? 'Saving...' : 'Save'}
                 </Button>
                 <Button
                   variant="outlined"
@@ -200,14 +216,22 @@ const Dashboard = () => {
               <Box>
                 <Typography variant="h6">Profile Information</Typography>
                 <Typography variant="body1">
-                  <strong>Name:</strong> {profileData?.user?.name || "Not set"}
+                  <strong>First Name:</strong>{' '}
+                  {profileData?.firstName || user?.firstName || 'Not set'}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Email:</strong> {profileData?.user?.email}
+                  <strong>Last Name:</strong> {profileData?.lastName || user?.lastName || 'Not set'}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Member since:</strong>{" "}
-                  {new Date(profileData?.user?.createdAt).toLocaleDateString()}
+                  <strong>Email:</strong> {profileData?.email || user?.email}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Member since:</strong>{' '}
+                  {profileData?.createdAt
+                    ? new Date(profileData.createdAt).toLocaleDateString()
+                    : user?.createdAt
+                      ? new Date(user.createdAt).toLocaleDateString()
+                      : 'N/A'}
                 </Typography>
               </Box>
 

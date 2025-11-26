@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 import { prisma } from '../db/prisma';
 import { redis } from '../lib/redis';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
@@ -11,6 +11,12 @@ const revokeSessionSchema = z.object({
   sid: z.string().min(1),
 });
 
+const updateProfileSchema = z.object({
+  firstName: z.string().min(2).optional(),
+  lastName: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+});
+
 // GET /me
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -19,8 +25,13 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
       select: {
         id: true,
         email: true,
+        phoneNumber: true,
+        firstName: true,
+        lastName: true,
         emailVerifiedAt: true,
+        phoneVerifiedAt: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -32,6 +43,63 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
     res.json(user);
   } catch (error) {
     console.error('Get user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /me - Update user profile
+router.put('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.session.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const data = updateProfileSchema.parse(req.body);
+
+    // Check if email is already taken by another user
+    if (data.email) {
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: data.email,
+          NOT: { id: userId },
+        },
+      });
+
+      if (existingUser) {
+        res.status(400).json({ error: 'Email already in use' });
+        return;
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.firstName && { firstName: data.firstName }),
+        ...(data.lastName && { lastName: data.lastName }),
+        ...(data.email && { email: data.email }),
+      },
+      select: {
+        id: true,
+        email: true,
+        phoneNumber: true,
+        firstName: true,
+        lastName: true,
+        emailVerifiedAt: true,
+        phoneVerifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json(updatedUser);
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

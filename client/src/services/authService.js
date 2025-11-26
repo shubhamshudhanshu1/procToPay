@@ -12,7 +12,7 @@ export const authService = {
   },
 
   getCurrentUser: async () => {
-    const response = await api.get('/me');
+    const response = await api.get('/auth/me');
     return response.data;
   },
 
@@ -32,7 +32,12 @@ export const authService = {
   },
 
   updateProfile: async (userData) => {
-    const response = await api.put('/users/profile', userData);
+    const response = await api.put('/me', userData);
+    return response.data;
+  },
+
+  logout: async () => {
+    const response = await api.post('/auth/me/logout');
     return response.data;
   },
 };

@@ -38,22 +38,17 @@ const Register = () => {
     try {
       await authService.register(data);
 
-      // Determine if we need to verify both email and phone
-      const hasBoth = data.email && data.phoneNumber;
-      const verifyBoth = hasBoth;
+      // Both email and phone are required, so we need to verify both
+      const verifyBoth = true;
 
       // Prepare navigation state
       const navigateState = {
-        email: data.email || null,
-        phoneNumber: data.phoneNumber || null,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
         verifyBoth,
       };
 
-      const message = verifyBoth
-        ? 'Registration successful! Please verify both your email and phone number.'
-        : data.email
-          ? 'Registration successful! OTP sent to your email. Please check your inbox.'
-          : 'Registration successful! OTP sent to your phone. Please check your messages.';
+      const message = 'Registration successful! Please verify both your email and phone number.';
 
       setSuccess(message);
       setError('');
@@ -112,13 +107,14 @@ const Register = () => {
           control={control}
           render={({ field }) => (
             <Input
-              label="Phone Number (Optional)"
+              label="Phone Number"
               placeholder="Enter your phone number"
               type="tel"
               value={field.value || ''}
               onChange={field.onChange}
               error={!!errors.phoneNumber}
               helperText={errors.phoneNumber?.message}
+              required
               sx={{ mb: 2 }}
             />
           )}
@@ -129,13 +125,14 @@ const Register = () => {
           control={control}
           render={({ field }) => (
             <Input
-              label="Email Address (Optional)"
+              label="Email Address"
               placeholder="Enter your email address"
               type="email"
               value={field.value || ''}
               onChange={field.onChange}
               error={!!errors.email}
               helperText={errors.email?.message}
+              required
               sx={{ mb: 2 }}
             />
           )}

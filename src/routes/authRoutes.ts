@@ -23,17 +23,45 @@ router.post('/login/request', async (req: Request, res: Response) => {
     // Always return 204 to prevent user enumeration
     return res.status(204).send();
   } catch (error: any) {
-    // Check if it's a rate limit error
     const errorMessage = error?.message || '';
+
+    // Check if it's a rate limit error
     const isRateLimitError =
       errorMessage.includes('Rate limit exceeded') ||
       errorMessage.includes('Please wait') ||
       errorMessage.includes('Too many requests');
 
+    // Check if it's a user not found error
+    const isUserNotFoundError = errorMessage.includes('User not found');
+
+    // Check if it's a verification error
+    const isVerificationError =
+      errorMessage.includes('is not verified') ||
+      errorMessage.includes('Email is not verified') ||
+      errorMessage.includes('Phone number is not verified');
+
     if (isRateLimitError) {
       // Return rate limit error to frontend
       console.error('Login request rate limit error:', error);
       return res.status(429).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+
+    if (isUserNotFoundError) {
+      // Return user not found error to frontend
+      console.error('Login request user not found error:', error);
+      return res.status(404).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+
+    if (isVerificationError) {
+      // Return verification error to frontend
+      console.error('Login request verification error:', error);
+      return res.status(403).json({
         success: false,
         error: errorMessage,
       });
@@ -100,8 +128,8 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
     const result = await authService.register(
       firstName,
       lastName,
-      email || undefined,
-      phoneNumber || undefined,
+      email,
+      phoneNumber,
       req.ip,
       req.headers['user-agent']
     );

@@ -58,7 +58,20 @@ describe('OTPService', () => {
       });
 
       const otp = await otpService.generateOTP('+11234567890', 'phone');
-      expect(otp).toBe('7890'); // Last 4 digits
+      expect(otp).toBe('567890'); // Last 6 digits (matching configured length)
+    });
+
+    it('should pad hardcoded OTP with zeros if phone is shorter than required length', async () => {
+      vi.mocked(configService.getOTPConfig).mockResolvedValueOnce({
+        length: 6,
+        expirySeconds: 600,
+        maxAttempts: 3,
+        hardcodedEnabled: true,
+      });
+
+      const otp = await otpService.generateOTP('+1234', 'phone');
+      expect(otp).toBe('001234'); // Padded with leading zeros to match length
+      expect(otp.length).toBe(6);
     });
 
     it('should store OTP in database', async () => {

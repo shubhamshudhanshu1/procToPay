@@ -222,8 +222,8 @@ describe('Authentication Integration Tests', () => {
       const phone = '+11234567890';
       const otp = await otpService.generateOTP(phone, 'phone');
 
-      // OTP should be last 4 digits
-      expect(otp).toBe('7890');
+      // OTP should be last 6 digits (matching configured length)
+      expect(otp).toBe('567890');
 
       // Verify should work with this OTP
       const verifyResult = await otpService.verifyOTP(phone, 'phone', otp);

@@ -2,45 +2,88 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { VpnKey as KeyIcon, Email as EmailIcon, Phone as PhoneIcon } from '@mui/icons-material';
 import { z } from 'zod';
 import { authService } from '../services/authService';
+import { configService } from '../services/configService';
 import { useAuthStore } from '../store/authStore';
 import { AuthLayout, AuthHeader, AuthAlert } from '../components/auth';
-import { Input, Button, Typography, Box } from '../components/ui';
+import { Button, Box } from '../components/ui';
+import ContactOTPCard from '../components/ContactOTPCard';
 
-const otpSchema = z.object({
-  otp: z
-    .string()
-    .length(6, 'OTP must be exactly 6 digits')
-    .regex(/^\d+$/, 'OTP must contain only numbers'),
-});
+// Custom hook for timer
+const useTimer = (initialSeconds = 60) => {
+  const [timeLeft, setTimeLeft] = useState(initialSeconds);
+  const [isActive, setIsActive] = useState(true);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (isActive && timeLeft > 0) {
+      timerRef.current = setTimeout(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setIsActive(false);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [timeLeft, isActive]);
+
+  const reset = (seconds = initialSeconds) => {
+    setTimeLeft(seconds);
+    setIsActive(true);
+  };
+
+  const formatTime = () => {
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return { timeLeft, isActive, reset, formatTime: formatTime() };
+};
 
 const VerifyOTP = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(60); // 60 seconds timer
-  const [isTimerActive, setIsTimerActive] = useState(true);
+  const [otpLength, setOtpLength] = useState(6);
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuthStore();
-  const timerRef = useRef(null);
+
+  // Timer for single contact (login flow)
+  const singleTimer = useTimer(60);
+
+  // Timers state for registration contacts (stored as objects with timeLeft and isActive)
+  const [contactTimers, setContactTimers] = useState({});
+
+  // Fetch OTP length from config
+  useEffect(() => {
+    configService
+      .getOTPConfig()
+      .then((otpConfig) => {
+        setOtpLength(otpConfig.length);
+      })
+      .catch((err) => {
+        console.error('Failed to load OTP config:', err);
+      });
+  }, []);
 
   // Get contacts from location state
-  // For login: { email: string, type: 'email' | 'phone' }
-  // For registration: { email?: string, phoneNumber?: string, verifyBoth?: boolean }
   const contacts = location.state;
 
-  // Redirect back if no state (e.g., on page refresh)
+  // Redirect back if no state
   useEffect(() => {
     if (!contacts || (!contacts.email && !contacts.phoneNumber)) {
-      navigate(-1); // Go back one page in history
+      navigate(-1);
     }
   }, [contacts, navigate]);
 
-  // Early return if no contacts (will redirect via useEffect)
   if (!contacts || (!contacts.email && !contacts.phoneNumber)) {
     return null;
   }
@@ -49,14 +92,13 @@ const VerifyOTP = () => {
   const isRegistration = contacts?.verifyBoth || (contacts?.email && contacts?.phoneNumber);
   const contactsToVerify = isRegistration
     ? [
-        contacts?.email && { value: contacts.email, type: 'email', verified: false },
-        contacts?.phoneNumber && { value: contacts.phoneNumber, type: 'phone', verified: false },
+        contacts?.email && { value: contacts.email, type: 'email' },
+        contacts?.phoneNumber && { value: contacts.phoneNumber, type: 'phone' },
       ].filter(Boolean)
     : [
         {
           value: contacts?.email || contacts?.phoneNumber,
           type: contacts?.type || 'email',
-          verified: false,
         },
       ].filter((c) => c.value);
 
@@ -65,119 +107,183 @@ const VerifyOTP = () => {
     return null;
   }
 
-  const [currentContactIndex, setCurrentContactIndex] = useState(0);
-  const [verifiedContacts, setVerifiedContacts] = useState([]);
-  const currentContact = contactsToVerify[currentContactIndex];
-
-  // Request OTP for current contact on mount or when contact changes
+  // Initialize timers for registration contacts
   useEffect(() => {
-    if (currentContact && !verifiedContacts.includes(currentContact.type)) {
-      // Request OTP for the current contact
-      authService.requestOTP(currentContact.value).catch(() => {
-        // Error handled silently - user can resend
+    if (isRegistration) {
+      const newTimers = {};
+      contactsToVerify.forEach((contact) => {
+        if (!contactTimers[contact.type]) {
+          newTimers[contact.type] = { timeLeft: 60, isActive: true };
+        }
       });
+      if (Object.keys(newTimers).length > 0) {
+        setContactTimers((prev) => ({ ...prev, ...newTimers }));
+      }
     }
-  }, [currentContactIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isRegistration]);
 
-  // Initialize timer
+  // Timer effect for registration contacts
   useEffect(() => {
-    if (isTimerActive && timeLeft > 0) {
-      timerRef.current = setTimeout(() => {
-        setTimeLeft(timeLeft - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsTimerActive(false);
-    }
+    if (!isRegistration) return;
+
+    const timerIntervals = {};
+    contactsToVerify.forEach((contact) => {
+      const timer = contactTimers[contact.type];
+      if (timer && timer.isActive && timer.timeLeft > 0) {
+        timerIntervals[contact.type] = setInterval(() => {
+          setContactTimers((prev) => {
+            const currentTimer = prev[contact.type];
+            if (!currentTimer || !currentTimer.isActive) return prev;
+            const newTimeLeft = currentTimer.timeLeft - 1;
+            return {
+              ...prev,
+              [contact.type]: {
+                timeLeft: newTimeLeft,
+                isActive: newTimeLeft > 0,
+              },
+            };
+          });
+        }, 1000);
+      }
+    });
 
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      Object.values(timerIntervals).forEach((interval) => clearInterval(interval));
     };
-  }, [timeLeft, isTimerActive]);
+  }, [isRegistration, contactTimers, contactsToVerify]);
 
-  // Reset timer when contact changes
-  useEffect(() => {
-    setTimeLeft(60);
-    setIsTimerActive(true);
-  }, [currentContactIndex]);
+  // Track verification status and OTP values
+  const [verifiedContacts, setVerifiedContacts] = useState([]);
+  const [otpValues, setOtpValues] = useState({});
+  const [loadingStates, setLoadingStates] = useState({});
+
+  // Form setup for login flow
+  const otpSchema = z.object({
+    otp: z
+      .string()
+      .length(otpLength, `OTP must be exactly ${otpLength} digits`)
+      .regex(/^\d+$/, 'OTP must contain only numbers'),
+  });
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    reset,
     setValue,
     watch,
   } = useForm({
     resolver: zodResolver(otpSchema),
   });
 
-  const otpValue = watch('otp', '');
+  const singleOtpValue = watch('otp', '');
 
-  // Handle OTP input to only allow numeric and limit to 6 digits
-  const handleOTPChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-    setValue('otp', value, { shouldValidate: true });
-  };
-
-  const onSubmit = async (data) => {
-    setError('');
-    setSuccess('');
-    setLoading(true);
-
-    try {
-      // Verify OTP - currently backend only supports email
-      // For phone, we'll use the same endpoint but the backend needs to support it
-      const contactValue = currentContact.value;
-      await authService.verifyOTP(contactValue, data.otp);
-
-      // Mark current contact as verified
-      const updatedVerified = [...verifiedContacts, currentContact.type];
-      setVerifiedContacts(updatedVerified);
-
-      // If registration and more contacts to verify, move to next
-      if (isRegistration && currentContactIndex < contactsToVerify.length - 1) {
-        setSuccess(`${currentContact.type === 'email' ? 'Email' : 'Phone'} verified successfully!`);
-        reset();
-        setTimeLeft(60);
-        setIsTimerActive(true);
-        setCurrentContactIndex(currentContactIndex + 1);
-        setLoading(false);
-        return;
-      }
-
-      // All verified or login - complete authentication
-      if (isRegistration) {
-        // For registration, fetch user after all verifications
-        const user = await authService.getCurrentUser();
-        login(user, null);
-        navigate('/dashboard');
-      } else {
-        // For login, fetch user and complete
-        const user = await authService.getCurrentUser();
-        login(user, null);
-        navigate('/dashboard');
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || 'Invalid or expired OTP. Please try again.');
-    } finally {
-      setLoading(false);
+  // Handle OTP input change
+  const handleOTPChange = (contactType, value) => {
+    const numericValue = value.replace(/\D/g, '').slice(0, otpLength);
+    if (isRegistration) {
+      setOtpValues((prev) => ({
+        ...prev,
+        [contactType]: numericValue,
+      }));
+    } else {
+      setValue('otp', numericValue, { shouldValidate: true });
     }
   };
 
-  const handleResendOTP = async () => {
-    if (isTimerActive) return; // Don't allow resend if timer is active
+  // Verify OTP for a specific contact
+  const verifyContactOTP = async (contact) => {
+    const otpValue = isRegistration ? otpValues[contact.type] : singleOtpValue;
+
+    if (!otpValue || otpValue.length !== otpLength) {
+      setError(
+        `Please enter ${otpLength}-digit OTP for ${contact.type === 'email' ? 'email' : 'phone'}`
+      );
+      return false;
+    }
+
+    setError('');
+    if (isRegistration) {
+      setLoadingStates((prev) => ({ ...prev, [contact.type]: true }));
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      await authService.verifyOTP(contact.value, otpValue);
+
+      if (isRegistration) {
+        setVerifiedContacts((prev) => [...prev, contact.type]);
+        setOtpValues((prev) => {
+          const updated = { ...prev };
+          delete updated[contact.type];
+          return updated;
+        });
+        setLoadingStates((prev) => ({ ...prev, [contact.type]: false }));
+      } else {
+        const user = await authService.getCurrentUser();
+        login(user, null);
+        navigate('/dashboard');
+      }
+
+      setSuccess(`${contact.type === 'email' ? 'Email' : 'Phone'} verified successfully!`);
+      return true;
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+          `Invalid or expired OTP for ${contact.type === 'email' ? 'email' : 'phone'}. Please try again.`
+      );
+      if (isRegistration) {
+        setLoadingStates((prev) => ({ ...prev, [contact.type]: false }));
+      } else {
+        setLoading(false);
+      }
+      return false;
+    }
+  };
+
+  // Handle form submit (for single contact verification - login flow)
+  const onSubmit = async (data) => {
+    await verifyContactOTP(contactsToVerify[0]);
+  };
+
+  // Check if all contacts are verified (for registration)
+  useEffect(() => {
+    if (isRegistration && verifiedContacts.length === contactsToVerify.length) {
+      const completeAuth = async () => {
+        try {
+          const user = await authService.getCurrentUser();
+          login(user, null);
+          navigate('/dashboard');
+        } catch (err) {
+          setError('Failed to complete authentication. Please try again.');
+        }
+      };
+      completeAuth();
+    }
+  }, [verifiedContacts, contactsToVerify.length, isRegistration, login, navigate]);
+
+  // Handle resend OTP
+  const handleResendOTP = async (contact) => {
+    const timer = isRegistration ? contactTimers[contact.type] : singleTimer;
+    if (timer?.isActive) return;
 
     setError('');
     setSuccess('');
     setResendLoading(true);
 
     try {
-      await authService.requestOTP(currentContact.value);
-      setSuccess('OTP sent successfully!');
-      setTimeLeft(60);
-      setIsTimerActive(true);
+      await authService.requestOTP(contact.value);
+      setSuccess(`OTP sent successfully to ${contact.type === 'email' ? 'email' : 'phone'}!`);
+
+      if (isRegistration) {
+        // Reset timer for this contact
+        setContactTimers((prev) => ({
+          ...prev,
+          [contact.type]: { timeLeft: 60, isActive: true },
+        }));
+      } else {
+        singleTimer.reset();
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to resend OTP. Please try again.');
     } finally {
@@ -185,161 +291,79 @@ const VerifyOTP = () => {
     }
   };
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+  // Format timer for display
+  const formatTimer = (timer) => {
+    if (!timer) return '0:00';
+    const mins = Math.floor(timer.timeLeft / 60);
+    const secs = timer.timeLeft % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getContactDisplay = (contact) => {
-    if (contact.type === 'email') {
-      return contact.value;
-    }
-    return contact.value;
-  };
-
-  const getContactTypeLabel = (type) => {
-    return type === 'email' ? 'Email' : 'Phone Number';
   };
 
   return (
     <AuthLayout>
       <AuthHeader
-        title={isRegistration ? 'Verify Contact' : 'Verify OTP'}
+        title={isRegistration ? 'Verify Contacts' : 'Verify OTP'}
         subtitle={
           isRegistration && contactsToVerify.length > 1
-            ? `Step ${currentContactIndex + 1} of ${contactsToVerify.length}`
+            ? `Verify both email and phone number`
             : undefined
         }
+        onBack={() => navigate(-1)}
       />
 
       <AuthAlert error={error} success={success} />
 
-      {/* Contact Info Display */}
-      <Box
-        sx={{
-          mb: 3,
-          p: 2,
-          backgroundColor: '#F8F9FA',
-          borderRadius: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-        }}
-      >
-        {currentContact.type === 'email' ? (
-          <EmailIcon sx={{ color: '#6C757D' }} />
-        ) : (
-          <PhoneIcon sx={{ color: '#6C757D' }} />
-        )}
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="body2" sx={{ color: '#6C757D', mb: 0.5 }}>
-            {getContactTypeLabel(currentContact.type)}:
-          </Typography>
-          <Typography variant="body1" sx={{ fontWeight: 600, color: '#343A40' }}>
-            {getContactDisplay(currentContact)}
-          </Typography>
+      {/* Stacked OTP inputs for registration */}
+      {isRegistration && contactsToVerify.length > 1 ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {contactsToVerify.map((contact) => {
+            const timer = contactTimers[contact.type];
+            return (
+              <ContactOTPCard
+                key={contact.type}
+                contact={contact}
+                otpLength={otpLength}
+                isVerified={verifiedContacts.includes(contact.type)}
+                otpValue={otpValues[contact.type] || ''}
+                onOTPChange={handleOTPChange}
+                onVerify={verifyContactOTP}
+                onResend={handleResendOTP}
+                isLoading={loadingStates[contact.type] || false}
+                resendLoading={resendLoading}
+                timer={
+                  timer
+                    ? {
+                        isActive: timer.isActive,
+                        formatTime: formatTimer(timer),
+                      }
+                    : null
+                }
+                error={error}
+              />
+            );
+          })}
         </Box>
-      </Box>
-
-      {/* Progress indicator for multiple verifications */}
-      {isRegistration && contactsToVerify.length > 1 && (
-        <Box sx={{ mb: 2, display: 'flex', gap: 1, justifyContent: 'center' }}>
-          {contactsToVerify.map((contact, index) => (
-            <Box
-              key={index}
-              sx={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor:
-                  index < currentContactIndex || verifiedContacts.includes(contact.type)
-                    ? '#28A745'
-                    : index === currentContactIndex
-                      ? '#6C757D'
-                      : '#DEE2E6',
-              }}
+      ) : (
+        /* Single OTP input for login */
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <ContactOTPCard
+              contact={contactsToVerify[0]}
+              otpLength={otpLength}
+              isVerified={false}
+              otpValue={singleOtpValue}
+              onOTPChange={handleOTPChange}
+              onVerify={verifyContactOTP}
+              onResend={handleResendOTP}
+              isLoading={loading}
+              resendLoading={resendLoading}
+              timer={singleTimer}
+              error={error}
+              register={register}
+              errors={errors}
             />
-          ))}
+          </form>
         </Box>
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Input
-          label={`Enter OTP sent to your ${currentContact.type === 'email' ? 'email' : 'phone'}`}
-          type="text"
-          placeholder="Enter 6-digit OTP"
-          value={otpValue}
-          onChange={handleOTPChange}
-          error={!!errors.otp}
-          helperText={errors.otp?.message}
-          sx={{ mb: 2 }}
-          startAdornment={<KeyIcon sx={{ mr: 1, color: '#ADB5BD' }} />}
-          autoComplete="off"
-          autoFocus
-          inputProps={{
-            maxLength: 6,
-            inputMode: 'numeric',
-            pattern: '[0-9]*',
-          }}
-        />
-
-        <Button
-          type="submit"
-          fullWidth
-          variant="contained"
-          size="large"
-          loading={loading}
-          sx={{
-            py: 1.5,
-            backgroundColor: '#6C757D',
-            '&:hover': {
-              backgroundColor: '#5A6268',
-            },
-            mb: 2,
-          }}
-        >
-          {isRegistration && currentContactIndex < contactsToVerify.length - 1
-            ? 'Verify & Continue'
-            : 'Verify OTP'}
-        </Button>
-      </form>
-
-      {/* Resend OTP */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
-        <Button
-          variant="text"
-          size="medium"
-          onClick={handleResendOTP}
-          disabled={isTimerActive || resendLoading || loading}
-          loading={resendLoading}
-          sx={{
-            color: '#6C757D',
-          }}
-        >
-          Resend OTP
-        </Button>
-        {isTimerActive && (
-          <Typography variant="body2" sx={{ color: '#6C757D' }}>
-            ({formatTime(timeLeft)})
-          </Typography>
-        )}
-      </Box>
-
-      {/* Back to Login */}
-      {!isRegistration && (
-        <Button
-          fullWidth
-          variant="text"
-          size="small"
-          onClick={() => navigate('/login')}
-          sx={{
-            mt: 1,
-            color: '#6C757D',
-          }}
-        >
-          Back to Login
-        </Button>
       )}
     </AuthLayout>
   );

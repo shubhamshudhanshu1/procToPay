@@ -9,6 +9,7 @@ import { sessionConfig } from './config/session';
 import authRoutes from './routes/authRoutes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import meRoutes from './routes/me';
+import configRoutes from './routes/configRoutes';
 import { getCSRFToken } from './middleware/csrf';
 
 const app: express.Application = express();
@@ -69,8 +70,9 @@ app.get('/health', (_req, res) => {
 app.get('/csrf', getCSRFToken);
 
 // Routes
+app.use('/api/config', configRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/me', meRoutes);
+app.use('/api/auth/me', meRoutes);
 
 // 404 handler
 app.use('*', notFoundHandler);

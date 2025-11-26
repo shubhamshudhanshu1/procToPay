@@ -27,13 +27,12 @@ export const loginSchema = z.object({
   // Keep as 'email' for backward compatibility with backend, but accepts both
 });
 
-// Phone validation schema (optional, but validates if provided)
+// Phone validation schema (required)
 const phoneSchema = z
   .string()
-  .optional()
+  .min(1, 'Phone number is required')
   .refine(
     (val) => {
-      if (!val || val.trim() === '') return true; // Optional, so empty is valid
       const cleaned = val.trim().replace(/[^\d+]/g, '');
       const digitsOnly = cleaned.replace(/\+/g, '');
       return (
@@ -48,51 +47,21 @@ const phoneSchema = z
     }
   );
 
-// Email validation schema (optional, but validates if provided)
+// Email validation schema (required)
 const emailSchema = z
   .string()
-  .optional()
-  .refine(
-    (val) => {
-      if (!val || val.trim() === '') return true; // Optional, so empty is valid
-      return z.string().email().safeParse(val).success;
-    },
-    {
-      message: 'Invalid email address',
-    }
-  );
+  .min(1, 'Email address is required')
+  .email('Invalid email address');
 
-export const registerSchema = z
-  .object({
-    firstName: z.string().min(2, 'First name must be at least 2 characters'),
-    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-    phoneNumber: phoneSchema,
-    email: emailSchema,
-  })
-  .refine(
-    (data) => {
-      const hasPhone = data.phoneNumber && data.phoneNumber.trim() !== '';
-      const hasEmail = data.email && data.email.trim() !== '';
-      return hasPhone || hasEmail;
-    },
-    {
-      message: 'Please provide either a phone number or email address',
-      path: ['phoneNumber'], // Show error on phoneNumber field
-    }
-  )
-  .refine(
-    (data) => {
-      const hasPhone = data.phoneNumber && data.phoneNumber.trim() !== '';
-      const hasEmail = data.email && data.email.trim() !== '';
-      return hasPhone || hasEmail;
-    },
-    {
-      message: 'Please provide either a phone number or email address',
-      path: ['email'], // Also show error on email field
-    }
-  );
+export const registerSchema = z.object({
+  firstName: z.string().min(2, 'First name must be at least 2 characters'),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+  phoneNumber: phoneSchema,
+  email: emailSchema,
+});
 
 export const profileSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').optional(),
+  firstName: z.string().min(2, 'First name must be at least 2 characters').optional(),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters').optional(),
   email: z.string().email('Invalid email address').optional(),
 });

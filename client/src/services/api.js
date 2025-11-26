@@ -25,17 +25,40 @@ api.interceptors.request.use(
   }
 );
 
+// Flag to prevent recursive logout calls
+let isLoggingOut = false;
+
 // Response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
+      // Skip logout handling if:
+      // 1. Already logging out (prevent infinite loop)
+      // 2. This is a logout request itself (don't logout on logout)
+      // 3. Already on auth pages
+      const isLogoutRequest = error.config?.url?.includes('/logout');
+      const currentPath = window.location.pathname;
+      const isAuthPage = ['/login', '/register', '/verify-otp'].includes(currentPath);
+
+      if (isLoggingOut || isLogoutRequest || isAuthPage) {
+        return Promise.reject(error);
+      }
+
       // Token expired or invalid, logout user
-      useAuthStore.getState().logout();
+      isLoggingOut = true;
+      try {
+        const logout = useAuthStore.getState().logout;
+        await logout();
+      } catch (logoutError) {
+        // Ignore logout errors to prevent infinite loop
+        console.error('Logout error in interceptor:', logoutError);
+      } finally {
+        isLoggingOut = false;
+      }
 
       // Only redirect if not already on login or verify-otp pages
-      const currentPath = window.location.pathname;
-      if (currentPath !== '/login' && currentPath !== '/verify-otp') {
+      if (!isAuthPage) {
         window.location.href = '/login';
       }
     }
