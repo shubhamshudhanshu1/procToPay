@@ -5,7 +5,6 @@ import { rateLimiterService } from './rateLimiterService';
 import { emailService } from './emailService';
 import { smsService } from './smsService';
 import { configService } from './configService';
-import { hashIP, hashUA } from '../lib/crypto';
 
 /**
  * Authentication Service
@@ -67,20 +66,12 @@ class AuthService {
     }
 
     // Check rate limits
-    const otpLimit = await rateLimiterService.checkOTPRequestLimit(
-      normalizedContact,
-      contactType
-    );
+    const otpLimit = await rateLimiterService.checkOTPRequestLimit(normalizedContact, contactType);
     if (!otpLimit.allowed) {
-      throw new Error(
-        `Rate limit exceeded. Please try again in ${otpLimit.retryAfter} seconds.`
-      );
+      throw new Error(`Rate limit exceeded. Please try again in ${otpLimit.retryAfter} seconds.`);
     }
 
-    const resendCheck = await rateLimiterService.checkResendTimer(
-      normalizedContact,
-      contactType
-    );
+    const resendCheck = await rateLimiterService.checkResendTimer(normalizedContact, contactType);
     if (!resendCheck.allowed) {
       throw new Error(
         `Please wait ${resendCheck.retryAfter} seconds before requesting a new code.`
@@ -96,12 +87,16 @@ class AuthService {
     }
 
     // Check if user exists
+    const orConditions: Array<{ email?: string } | { phoneNumber?: string }> = [];
+    if (contactType === 'email') {
+      orConditions.push({ email: normalizedContact });
+    } else {
+      orConditions.push({ phoneNumber: normalizedContact });
+    }
+
     const user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: contactType === 'email' ? normalizedContact : undefined },
-          { phoneNumber: contactType === 'phone' ? normalizedContact : undefined },
-        ],
+        OR: orConditions,
       },
     });
 
@@ -136,7 +131,10 @@ class AuthService {
    * @param otp OTP code
    * @returns User ID and session data
    */
-  async verifyOTP(contact: string, otp: string): Promise<{
+  async verifyOTP(
+    contact: string,
+    otp: string
+  ): Promise<{
     userId: string;
     email?: string;
     phoneNumber?: string;
@@ -156,10 +154,7 @@ class AuthService {
         : await contactService.normalizePhone(contact);
 
     // Check verification rate limit
-    const verifyLimit = await rateLimiterService.checkVerifyLimit(
-      normalizedContact,
-      contactType
-    );
+    const verifyLimit = await rateLimiterService.checkVerifyLimit(normalizedContact, contactType);
     if (!verifyLimit.allowed) {
       throw new Error(
         `Too many verification attempts. Please try again in ${verifyLimit.retryAfter} seconds.`
@@ -185,12 +180,16 @@ class AuthService {
     }
 
     // Find or create user
+    const orConditions: Array<{ email?: string } | { phoneNumber?: string }> = [];
+    if (contactType === 'email') {
+      orConditions.push({ email: normalizedContact });
+    } else {
+      orConditions.push({ phoneNumber: normalizedContact });
+    }
+
     const user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: contactType === 'email' ? normalizedContact : undefined },
-          { phoneNumber: contactType === 'phone' ? normalizedContact : undefined },
-        ],
+        OR: orConditions,
       },
     });
 
@@ -211,13 +210,24 @@ class AuthService {
       data: updateData,
     });
 
-    return {
+    const result: {
+      userId: string;
+      email?: string;
+      phoneNumber?: string;
+      firstName: string;
+      lastName: string;
+    } = {
       userId: user.id,
-      email: user.email || undefined,
-      phoneNumber: user.phoneNumber || undefined,
       firstName: user.firstName,
       lastName: user.lastName,
     };
+    if (user.email) {
+      result.email = user.email;
+    }
+    if (user.phoneNumber) {
+      result.phoneNumber = user.phoneNumber;
+    }
+    return result;
   }
 
   /**
@@ -287,13 +297,19 @@ class AuthService {
     }
 
     // Create user
+    const createData: any = {
+      firstName,
+      lastName,
+    };
+    if (normalizedEmail) {
+      createData.email = normalizedEmail;
+    }
+    if (normalizedPhone) {
+      createData.phoneNumber = normalizedPhone;
+    }
+
     const user = await prisma.user.create({
-      data: {
-        firstName,
-        lastName,
-        email: normalizedEmail,
-        phoneNumber: normalizedPhone,
-      },
+      data: createData,
     });
 
     // Determine which contact to use for OTP (prefer email)
@@ -301,20 +317,12 @@ class AuthService {
     const normalizedContact = normalizedEmail || normalizedPhone!;
 
     // Check rate limits
-    const otpLimit = await rateLimiterService.checkOTPRequestLimit(
-      normalizedContact,
-      contactType
-    );
+    const otpLimit = await rateLimiterService.checkOTPRequestLimit(normalizedContact, contactType);
     if (!otpLimit.allowed) {
-      throw new Error(
-        `Rate limit exceeded. Please try again in ${otpLimit.retryAfter} seconds.`
-      );
+      throw new Error(`Rate limit exceeded. Please try again in ${otpLimit.retryAfter} seconds.`);
     }
 
-    const resendCheck = await rateLimiterService.checkResendTimer(
-      normalizedContact,
-      contactType
-    );
+    const resendCheck = await rateLimiterService.checkResendTimer(normalizedContact, contactType);
     if (!resendCheck.allowed) {
       throw new Error(
         `Please wait ${resendCheck.retryAfter} seconds before requesting a new code.`
@@ -381,10 +389,7 @@ class AuthService {
         : await contactService.normalizePhone(contact);
 
     // Check verification rate limit
-    const verifyLimit = await rateLimiterService.checkVerifyLimit(
-      normalizedContact,
-      contactType
-    );
+    const verifyLimit = await rateLimiterService.checkVerifyLimit(normalizedContact, contactType);
     if (!verifyLimit.allowed) {
       throw new Error(
         `Too many verification attempts. Please try again in ${verifyLimit.retryAfter} seconds.`
@@ -439,13 +444,24 @@ class AuthService {
       data: updateData,
     });
 
-    return {
+    const result: {
+      userId: string;
+      email?: string;
+      phoneNumber?: string;
+      firstName: string;
+      lastName: string;
+    } = {
       userId: user.id,
-      email: user.email || undefined,
-      phoneNumber: user.phoneNumber || undefined,
       firstName: user.firstName,
       lastName: user.lastName,
     };
+    if (user.email) {
+      result.email = user.email;
+    }
+    if (user.phoneNumber) {
+      result.phoneNumber = user.phoneNumber;
+    }
+    return result;
   }
 
   /**
@@ -457,10 +473,10 @@ class AuthService {
    * @param userAgent User agent
    */
   async createSession(
-    userId: string,
-    sessionId: string,
-    ipAddress?: string,
-    userAgent?: string
+    _userId: string,
+    _sessionId: string,
+    _ipAddress?: string,
+    _userAgent?: string
   ): Promise<void> {
     // Session is managed by express-session middleware
     // We just need to store user ID in session
@@ -472,4 +488,3 @@ class AuthService {
 export const authService = new AuthService();
 
 export default authService;
-

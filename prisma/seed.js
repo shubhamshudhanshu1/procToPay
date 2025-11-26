@@ -10,8 +10,9 @@ async function main() {
         update: {},
         create: {
             email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
             emailVerifiedAt: new Date(),
-            createdVia: 'email_passwordless',
         },
     });
     console.log('✅ Created test user:', user.email);

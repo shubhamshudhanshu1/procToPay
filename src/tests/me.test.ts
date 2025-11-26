@@ -17,7 +17,8 @@ describe('User Routes', () => {
     await prisma.user.create({
       data: {
         email: 'test@example.com',
-        createdVia: 'email_passwordless',
+        firstName: 'Test',
+        lastName: 'User',
       },
     });
 

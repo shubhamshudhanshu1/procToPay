@@ -10,6 +10,8 @@ import { configService } from './configService';
  */
 class EmailService {
   private transporter: nodemailer.Transporter;
+  private host?: string;
+  private port?: number;
 
   constructor() {
     if (env.SENDGRID_API_KEY) {
@@ -21,11 +23,15 @@ class EmailService {
           pass: env.SENDGRID_API_KEY,
         },
       });
+      this.host = 'smtp.sendgrid.net';
+      this.port = 587;
     } else {
       // Use local SMTP for development (MailHog)
+      this.host = process.env['MAILHOG_HOST'] || 'mailhog';
+      this.port = parseInt(process.env['MAILHOG_PORT'] || '1025', 10);
       this.transporter = nodemailer.createTransport({
-        host: process.env.MAILHOG_HOST || 'mailhog',
-        port: parseInt(process.env.MAILHOG_PORT || '1025', 10),
+        host: this.host,
+        port: this.port,
         secure: false,
       });
     }
@@ -80,9 +86,15 @@ class EmailService {
         text,
         html,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send OTP email:', error);
-      throw new Error('Failed to send OTP email');
+      console.error('Error details:', {
+        message: error?.message,
+        code: error?.code,
+        host: this.host,
+        port: this.port,
+      });
+      throw new Error(`Failed to send OTP email: ${error?.message || 'Unknown error'}`);
     }
   }
 
@@ -115,4 +127,3 @@ class EmailService {
 export const emailService = new EmailService();
 
 export default emailService;
-

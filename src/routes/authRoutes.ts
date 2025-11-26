@@ -21,16 +21,32 @@ router.post('/login/request', async (req: Request, res: Response) => {
     await authService.requestOTP(contact, req.ip, req.headers['user-agent']);
 
     // Always return 204 to prevent user enumeration
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error: any) {
-    // Log error but still return 204 to prevent user enumeration
+    // Check if it's a rate limit error
+    const errorMessage = error?.message || '';
+    const isRateLimitError =
+      errorMessage.includes('Rate limit exceeded') ||
+      errorMessage.includes('Please wait') ||
+      errorMessage.includes('Too many requests');
+
+    if (isRateLimitError) {
+      // Return rate limit error to frontend
+      console.error('Login request rate limit error:', error);
+      return res.status(429).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+
+    // Log other errors but still return 204 to prevent user enumeration
     if (error instanceof ZodError) {
       // Validation errors - still return 204 for security
       console.error('Login request validation error:', error.errors);
     } else {
       console.error('Login request error:', error);
     }
-    res.status(204).send();
+    return res.status(204).send();
   }
 });
 

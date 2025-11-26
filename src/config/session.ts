@@ -1,5 +1,5 @@
 import session from 'express-session';
-import { redis } from '../lib/redis';
+// import { redis } from '../lib/redis';
 import { env } from './env';
 
 // Temporarily use memory store to get server running

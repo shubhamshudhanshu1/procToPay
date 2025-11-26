@@ -65,6 +65,13 @@ const defaultConfigs = [
     category: 'rate_limit',
     description: 'Minimum seconds between resend requests',
   },
+  {
+    key: 'rate_limit.disable_rate_limit',
+    value: 'true',
+    type: 'boolean' as const,
+    category: 'rate_limit',
+    description: 'Disable all rate limiting checks',
+  },
 
   // Contact Configuration
   {
@@ -128,25 +135,40 @@ async function main() {
   // Seed default configurations
   console.log('📋 Seeding default configurations...');
   for (const config of defaultConfigs) {
-    await prisma.configuration.upsert({
+    const existing = await prisma.configuration.findUnique({
       where: { key: config.key },
-      update: {
-        // Only update if value changed (don't overwrite user changes)
-        value: config.value,
-        type: config.type,
-        description: config.description,
-        category: config.category,
-      },
-      create: {
-        key: config.key,
-        value: config.value,
-        type: config.type,
-        category: config.category,
-        description: config.description,
-        isActive: true,
-      },
     });
-    console.log(`  ✅ ${config.key}`);
+
+    if (existing) {
+      // Only update description and type if they changed, preserve existing value
+      // This prevents overwriting production/UAT configurations
+      if (existing.description !== config.description || existing.type !== config.type) {
+        await prisma.configuration.update({
+          where: { key: config.key },
+          data: {
+            description: config.description,
+            type: config.type,
+            category: config.category,
+          },
+        });
+        console.log(`  🔄 ${config.key} (updated metadata only, value preserved)`);
+      } else {
+        console.log(`  ⏭️  ${config.key} (already exists, skipped)`);
+      }
+    } else {
+      // Create new configuration with default value
+      await prisma.configuration.create({
+        data: {
+          key: config.key,
+          value: config.value,
+          type: config.type,
+          category: config.category,
+          description: config.description,
+          isActive: true,
+        },
+      });
+      console.log(`  ✅ ${config.key} (created with default value)`);
+    }
   }
 
   console.log('\n🎉 Seeding completed!');

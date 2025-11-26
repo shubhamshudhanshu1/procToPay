@@ -19,6 +19,7 @@ interface RateLimitConfig {
   ipPerHour: number;
   verifyPer10Min: number;
   resendSeconds: number;
+  disableRateLimit: boolean;
 }
 
 /**
@@ -47,6 +48,22 @@ class ConfigService {
       }
 
       // Load from database
+      // Check if prisma is available and has the configuration model
+      if (!prisma) {
+        console.warn('Prisma client not available, using empty configuration cache');
+        this.cache = {};
+        this.initialized = true;
+        return;
+      }
+
+      // Check if configuration model exists (Prisma client might not be fully initialized)
+      if (typeof prisma.configuration === 'undefined') {
+        console.warn('Prisma configuration model not available, using empty configuration cache');
+        this.cache = {};
+        this.initialized = true;
+        return;
+      }
+
       const configs = await prisma.configuration.findMany({
         where: { isActive: true },
       });
@@ -87,6 +104,11 @@ class ConfigService {
 
     // Load from database if not cached
     try {
+      // Check if prisma is available
+      if (!prisma || typeof prisma.configuration === 'undefined') {
+        return defaultValue;
+      }
+
       const config = await prisma.configuration.findUnique({
         where: { key },
       });
@@ -125,22 +147,30 @@ class ConfigService {
 
     try {
       // Update database
+      const updateData: any = {
+        value: stringValue,
+        type,
+        updatedAt: new Date(),
+      };
+      if (updatedBy !== undefined) {
+        updateData.updatedBy = updatedBy;
+      }
+
+      const createData: any = {
+        key,
+        value: stringValue,
+        type,
+        category: this.getCategory(key),
+        description: this.getDescription(key),
+      };
+      if (updatedBy !== undefined) {
+        createData.updatedBy = updatedBy;
+      }
+
       await prisma.configuration.upsert({
         where: { key },
-        update: {
-          value: stringValue,
-          type,
-          updatedBy,
-          updatedAt: new Date(),
-        },
-        create: {
-          key,
-          value: stringValue,
-          type,
-          category: this.getCategory(key),
-          description: this.getDescription(key),
-          updatedBy,
-        },
+        update: updateData,
+        create: createData,
       });
 
       // Invalidate cache
@@ -176,6 +206,7 @@ class ConfigService {
       ipPerHour: await this.get<number>('rate_limit.ip_per_hour', 10),
       verifyPer10Min: await this.get<number>('rate_limit.verify_per_10min', 3),
       resendSeconds: await this.get<number>('rate_limit.resend_seconds', 60),
+      disableRateLimit: await this.get<boolean>('rate_limit.disable_rate_limit', false),
     };
   }
 
@@ -246,6 +277,7 @@ class ConfigService {
       'rate_limit.ip_per_hour': 'Requests per hour per IP address',
       'rate_limit.verify_per_10min': 'Verification attempts per 10 minutes',
       'rate_limit.resend_seconds': 'Minimum seconds between resend requests',
+      'rate_limit.disable_rate_limit': 'Disable all rate limiting checks',
       'contact.default_country_code': 'Default country code for phone numbers',
       'contact.email_enabled': 'Enable email authentication',
       'contact.phone_enabled': 'Enable phone authentication',

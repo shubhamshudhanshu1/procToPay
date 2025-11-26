@@ -7,10 +7,20 @@
       "request": "attach",
       "port": 9229,
       "address": "localhost",
-      "localRoot": "${workspaceFolder}/src",
-      "remoteRoot": "/app/src",
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/app",
       "protocol": "inspector",
-      "restart": true
+      "restart": true,
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "sourceMapPathOverrides": {
+        "/app/*": "${workspaceFolder}/*",
+        "/app/src/*": "${workspaceFolder}/src/*"
+      }
     },
     {
       "name": "Debug Local App",

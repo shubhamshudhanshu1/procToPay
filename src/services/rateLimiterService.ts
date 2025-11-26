@@ -107,14 +107,23 @@ class RateLimiterService {
     resetTime: number;
     retryAfter?: number;
   }> {
+    // Get rate limit config
+    const rateLimitConfig = await configService.getRateLimitConfig();
+
+    // Skip rate limiting if disabled
+    if (rateLimitConfig.disableRateLimit) {
+      return {
+        allowed: true,
+        remaining: Infinity,
+        resetTime: Date.now() + 3600000,
+      };
+    }
+
     // Normalize contact
     const normalizedContact =
       contactType === 'email'
         ? contactService.normalizeEmail(contact)
         : await contactService.normalizePhone(contact);
-
-    // Get rate limit config
-    const rateLimitConfig = await configService.getRateLimitConfig();
 
     const key = `otp_request:${contactType}:${normalizedContact}`;
     return await this.checkRateLimit(key, rateLimitConfig.otpRequestPerHour, 3600); // 1 hour
@@ -134,6 +143,15 @@ class RateLimiterService {
   }> {
     // Get rate limit config
     const rateLimitConfig = await configService.getRateLimitConfig();
+
+    // Skip rate limiting if disabled
+    if (rateLimitConfig.disableRateLimit) {
+      return {
+        allowed: true,
+        remaining: Infinity,
+        resetTime: Date.now() + 3600000,
+      };
+    }
 
     const key = `ip:${ipAddress}`;
     return await this.checkRateLimit(key, rateLimitConfig.ipPerHour, 3600); // 1 hour
@@ -155,14 +173,23 @@ class RateLimiterService {
     resetTime: number;
     retryAfter?: number;
   }> {
+    // Get rate limit config
+    const rateLimitConfig = await configService.getRateLimitConfig();
+
+    // Skip rate limiting if disabled
+    if (rateLimitConfig.disableRateLimit) {
+      return {
+        allowed: true,
+        remaining: Infinity,
+        resetTime: Date.now() + 600000,
+      };
+    }
+
     // Normalize contact
     const normalizedContact =
       contactType === 'email'
         ? contactService.normalizeEmail(contact)
         : await contactService.normalizePhone(contact);
-
-    // Get rate limit config
-    const rateLimitConfig = await configService.getRateLimitConfig();
 
     const key = `verify:${contactType}:${normalizedContact}`;
     return await this.checkRateLimit(key, rateLimitConfig.verifyPer10Min, 600); // 10 minutes
@@ -182,14 +209,19 @@ class RateLimiterService {
     allowed: boolean;
     retryAfter?: number;
   }> {
+    // Get rate limit config
+    const rateLimitConfig = await configService.getRateLimitConfig();
+
+    // Skip rate limiting if disabled
+    if (rateLimitConfig.disableRateLimit) {
+      return { allowed: true };
+    }
+
     // Normalize contact
     const normalizedContact =
       contactType === 'email'
         ? contactService.normalizeEmail(contact)
         : await contactService.normalizePhone(contact);
-
-    // Get rate limit config
-    const rateLimitConfig = await configService.getRateLimitConfig();
 
     const key = `resend:${contactType}:${normalizedContact}`;
     const redisKey = `${this.redisPrefix}${key}`;

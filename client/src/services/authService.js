@@ -1,13 +1,13 @@
 import api from './api';
 
 export const authService = {
-  requestOTP: async (email) => {
-    const response = await api.post('/auth/login/request', { email });
+  requestOTP: async (contact) => {
+    const response = await api.post('/auth/login/request', { contact });
     return response.data;
   },
 
-  verifyOTP: async (email, otp) => {
-    const response = await api.post('/auth/login/verify', { email, otp });
+  verifyOTP: async (contact, otp) => {
+    const response = await api.post('/auth/login/verify', { contact, otp });
     return response.data;
   },
 
