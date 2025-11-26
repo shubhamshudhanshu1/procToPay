@@ -1,33 +1,16 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Container,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Alert,
-  AppBar,
-  Toolbar,
-  IconButton,
-  Menu,
-  MenuItem,
-  Avatar,
-} from '@mui/material';
-import { AccountCircle, Logout } from '@mui/icons-material';
+import { Paper, TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
 import { profileSchema } from '../schemas/authSchemas';
+import MainLayout from '../components/layout/MainLayout';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  const { user, logout, updateUser } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const queryClient = useQueryClient();
 
   const {
@@ -60,23 +43,6 @@ const Dashboard = () => {
     },
   });
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = async () => {
-    handleMenuClose();
-    await logout();
-    // Clear all queries to prevent stale data
-    queryClient.clear();
-    // Navigate to login page
-    navigate('/login');
-  };
-
   const onSubmit = (data) => {
     updateProfileMutation.mutate(data);
   };
@@ -97,108 +63,89 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth="md" className="py-8">
+      <MainLayout>
         <Typography>Loading...</Typography>
-      </Container>
+      </MainLayout>
     );
   }
 
   return (
-    <Box className="min-h-screen bg-gray-50">
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" className="flex-grow">
-            Proc to Pay Dashboard
-          </Typography>
-          <IconButton
-            size="large"
-            edge="end"
-            aria-label="account of current user"
-            aria-controls="menu-appbar"
-            aria-haspopup="true"
-            onClick={handleMenuOpen}
-            color="inherit"
-          >
-            <Avatar sx={{ width: 32, height: 32 }}>
-              {user?.firstName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase()}
-            </Avatar>
-          </IconButton>
-          <Menu
-            id="menu-appbar"
-            anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
+    <MainLayout>
+      <Box>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            backgroundColor: '#FFFFFF',
+            borderRadius: 1,
+            border: '1px solid #E0E0E0',
+          }}
+        >
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontWeight: 600,
+              color: '#343A40',
+              mb: 3,
+              fontSize: '1.5rem',
             }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
           >
-            <MenuItem onClick={handleLogout}>
-              <Logout className="mr-2" />
-              Logout
-            </MenuItem>
-          </Menu>
-        </Toolbar>
-      </AppBar>
-
-      <Container maxWidth="md" className="py-8">
-        <Paper elevation={3} className="p-6">
-          <Typography variant="h4" component="h1" className="mb-6">
             Welcome, {profileData?.firstName || user?.firstName || user?.email}!
           </Typography>
 
           {updateProfileMutation.error && (
-            <Alert severity="error" className="mb-4">
+            <Alert severity="error" sx={{ mb: 3 }}>
               {updateProfileMutation.error.response?.data?.error || 'An error occurred'}
             </Alert>
           )}
 
           {updateProfileMutation.isSuccess && (
-            <Alert severity="success" className="mb-4">
+            <Alert severity="success" sx={{ mb: 3 }}>
               Profile updated successfully!
             </Alert>
           )}
 
           {editMode ? (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <TextField
-                fullWidth
-                label="First Name"
-                {...register('firstName')}
-                error={!!errors.firstName}
-                helperText={errors.firstName?.message}
-                className="mb-4"
-              />
+            <form onSubmit={handleSubmit(onSubmit)}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+                <TextField
+                  fullWidth
+                  label="First Name"
+                  {...register('firstName')}
+                  error={!!errors.firstName}
+                  helperText={errors.firstName?.message}
+                />
 
-              <TextField
-                fullWidth
-                label="Last Name"
-                {...register('lastName')}
-                error={!!errors.lastName}
-                helperText={errors.lastName?.message}
-                className="mb-4"
-              />
+                <TextField
+                  fullWidth
+                  label="Last Name"
+                  {...register('lastName')}
+                  error={!!errors.lastName}
+                  helperText={errors.lastName?.message}
+                />
 
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                {...register('email')}
-                error={!!errors.email}
-                helperText={errors.email?.message}
-                className="mb-4"
-              />
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  {...register('email')}
+                  error={!!errors.email}
+                  helperText={errors.email?.message}
+                />
+              </Box>
 
-              <Box className="flex gap-4">
+              <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button
                   type="submit"
                   variant="contained"
                   disabled={updateProfileMutation.isPending}
+                  sx={{
+                    backgroundColor: '#343A40',
+                    '&:hover': {
+                      backgroundColor: '#2C2C2C',
+                    },
+                  }}
                 >
                   {updateProfileMutation.isPending ? 'Saving...' : 'Save'}
                 </Button>
@@ -206,26 +153,43 @@ const Dashboard = () => {
                   variant="outlined"
                   onClick={handleCancel}
                   disabled={updateProfileMutation.isPending}
+                  sx={{
+                    borderColor: '#6C757D',
+                    color: '#6C757D',
+                    '&:hover': {
+                      borderColor: '#5A6268',
+                      backgroundColor: '#F8F9FA',
+                    },
+                  }}
                 >
                   Cancel
                 </Button>
               </Box>
             </form>
           ) : (
-            <Box className="space-y-4">
-              <Box>
-                <Typography variant="h6">Profile Information</Typography>
-                <Typography variant="body1">
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: '#343A40',
+                  mb: 2,
+                }}
+              >
+                Profile Information
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+                <Typography variant="body1" sx={{ color: '#343A40' }}>
                   <strong>First Name:</strong>{' '}
                   {profileData?.firstName || user?.firstName || 'Not set'}
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: '#343A40' }}>
                   <strong>Last Name:</strong> {profileData?.lastName || user?.lastName || 'Not set'}
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: '#343A40' }}>
                   <strong>Email:</strong> {profileData?.email || user?.email}
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: '#343A40' }}>
                   <strong>Member since:</strong>{' '}
                   {profileData?.createdAt
                     ? new Date(profileData.createdAt).toLocaleDateString()
@@ -235,14 +199,23 @@ const Dashboard = () => {
                 </Typography>
               </Box>
 
-              <Button variant="contained" onClick={handleEdit}>
+              <Button
+                variant="contained"
+                onClick={handleEdit}
+                sx={{
+                  backgroundColor: '#343A40',
+                  '&:hover': {
+                    backgroundColor: '#2C2C2C',
+                  },
+                }}
+              >
                 Edit Profile
               </Button>
             </Box>
           )}
         </Paper>
-      </Container>
-    </Box>
+      </Box>
+    </MainLayout>
   );
 };
 
