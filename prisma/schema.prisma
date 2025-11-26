@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
@@ -12,17 +12,22 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  email           String?   @unique
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String?   @unique @db.Citext
   phoneNumber     String?   @unique
-  firstName       String
-  lastName        String
+  firstName       String?
+  lastName        String?
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
-  status          String    @default("active")
+  status          String    @default("active") // 'active' | 'pending' | 'locked' | 'disabled'
   tokenVersion    Int       @default(1)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @db.Timestamptz
+
+  // Relations for multi-tenant RBAC
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
 
   // Ensure at least one contact method exists
   @@index([email])
@@ -31,20 +36,20 @@ model User {
 }
 
 model OtpToken {
-  id          String   @id @default(cuid())
-  contact     String   // Email or phone number (normalized)
-  contactType String   // 'email' | 'phone'
-  tokenHash   String   // Hashed OTP (HMAC-SHA256)
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(3)
-  ipHash      String?
-  uaHash      String?
-  status      String   @default("pending") // 'pending' | 'verified' | 'failed' | 'expired'
+  id           String    @id @default(cuid())
+  contact      String // Email or phone number (normalized)
+  contactType  String // 'email' | 'phone'
+  tokenHash    String // Hashed OTP (HMAC-SHA256)
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3)
+  ipHash       String?
+  uaHash       String?
+  status       String    @default("pending") // 'pending' | 'verified' | 'failed' | 'expired'
   failedReason String?
-  expiresAt   DateTime
-  usedAt      DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([contact, contactType])
   @@index([expiresAt])
@@ -55,16 +60,150 @@ model OtpToken {
 model Configuration {
   id          String   @id @default(cuid())
   key         String   @unique // e.g., "otp.length"
-  value       String   // Stored as JSON string
-  type        String   // 'number' | 'string' | 'boolean' | 'json'
+  value       String // Stored as JSON string
+  type        String // 'number' | 'string' | 'boolean' | 'json'
   description String?
-  category    String   // 'otp' | 'rate_limit' | 'security' | 'feature' | 'contact'
+  category    String // 'otp' | 'rate_limit' | 'security' | 'feature' | 'contact'
   isActive    Boolean  @default(true)
-  updatedBy   String?  // User ID who updated
+  updatedBy   String? // User ID who updated
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 
   @@index([key])
   @@index([category])
   @@map("configurations")
+}
+
+model Tenant {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  code      String?  @unique
+  status    String   @default("active") // 'active' | 'suspended' | 'deleted'
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@index([name])
+  @@index([code])
+  @@index([status])
+  @@map("tenants")
+}
+
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String   @unique // 'super_admin', 'tenant_admin', etc.
+  name        String
+  scope       String // 'global' | 'tenant' (enforced by DB trigger)
+  description String?
+  createdBy   String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@index([slug])
+  @@index([scope])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module      String // e.g., 'tenant', 'user', 'role', 'catalog'
+  action      String // e.g., 'create', 'view', 'edit', 'delete'
+  slug        String   @unique // 'tenant:create', 'catalog:upload', etc.
+  description String?
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@index([action])
+  @@index([slug])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  roleId    String   @db.Uuid
+  tenantId  String?  @db.Uuid // null for global roles
+  status    String   @default("active") // 'active' | 'pending' | 'revoked'
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId, roleId, tenantId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash Bytes // Hashed refresh token
+  tenantId  String?   @db.Uuid // null for global-admin context
+  userAgent String?
+  ip        String?   @db.Inet
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  expiresAt DateTime  @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+
+  // Relations
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@map("refresh_tokens")
+}
+
+model PolicyMeta {
+  id        String   @id @default("policy")
+  policyVer Int      @default(1)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@map("policy_meta")
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  ts          DateTime @default(now()) @db.Timestamptz
+  actorUserId String?  @db.Uuid
+  tenantId    String?  @db.Uuid
+  action      String // 'tenant.create', 'user.invite', 'catalog.upload', etc.
+  resource    String?
+  beforeJson  Json?
+  afterJson   Json?
+  ip          String?  @db.Inet
+  userAgent   String?
+
+  // Relations
+  actor  User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([actorUserId])
+  @@index([ts])
+  @@index([action])
+  @@map("audit_logs")
 }

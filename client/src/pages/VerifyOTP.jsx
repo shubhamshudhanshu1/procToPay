@@ -77,13 +77,14 @@ const VerifyOTP = () => {
   // Get contacts from location state
   const contacts = location.state;
 
-  // Redirect back if no state
+  // Redirect back on reload (when location.state is lost)
   useEffect(() => {
     if (!contacts || (!contacts.email && !contacts.phoneNumber)) {
       navigate(-1);
     }
   }, [contacts, navigate]);
 
+  // Return null if no contacts (handles reload case)
   if (!contacts || (!contacts.email && !contacts.phoneNumber)) {
     return null;
   }

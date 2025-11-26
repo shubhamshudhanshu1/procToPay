@@ -146,3 +146,8 @@ dump.rdb
 
 # MailHog persisted emails
 .mailhog/
+
+# Prisma generated files
+prisma/seed.js
+prisma/seed.d.ts
+prisma/seed.*.map
