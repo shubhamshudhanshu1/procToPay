@@ -281,11 +281,51 @@ class UserRoleService {
   /**
    * Check if user is super admin
    *
+   * @deprecated Use hasGlobalRole() or permission checks instead for better flexibility
    * @param userId User UUID
    * @returns true if user has super_admin role (global scope)
    */
   async isSuperAdmin(userId: string): Promise<boolean> {
     return this.checkUserHasRole(userId, 'super_admin');
+  }
+
+  /**
+   * Check if user has a global role
+   *
+   * @param userId User UUID
+   * @param roleSlug Role slug (e.g., 'super_admin', 'system_admin')
+   * @returns true if user has the role (global scope)
+   */
+  async hasGlobalRole(userId: string, roleSlug: string): Promise<boolean> {
+    return this.checkUserHasRole(userId, roleSlug, null);
+  }
+
+  /**
+   * Check if user has any of the specified global roles
+   *
+   * @param userId User UUID
+   * @param roleSlugs Array of role slugs to check
+   * @returns true if user has any of the roles (global scope)
+   */
+  async hasAnyGlobalRole(userId: string, roleSlugs: string[]): Promise<boolean> {
+    for (const roleSlug of roleSlugs) {
+      if (await this.hasGlobalRole(userId, roleSlug)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if user has a tenant-scoped role
+   *
+   * @param userId User UUID
+   * @param roleSlug Role slug (e.g., 'tenant_admin')
+   * @param tenantId Tenant UUID
+   * @returns true if user has the role in the tenant
+   */
+  async hasTenantRole(userId: string, roleSlug: string, tenantId: string): Promise<boolean> {
+    return this.checkUserHasRole(userId, roleSlug, tenantId);
   }
 }
 

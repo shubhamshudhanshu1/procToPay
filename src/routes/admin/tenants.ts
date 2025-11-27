@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { requireSuperAdmin, AuthenticatedRequest } from '../../middleware/permission';
+import { requireWildcardPermission, AuthenticatedRequest } from '../../middleware/permission';
 import { tenantService } from '../../services/tenantService';
 import { createTenantSchema, updateTenantSchema } from '../../schemas/adminSchemas';
 
@@ -10,7 +10,7 @@ const router: Router = Router();
  * GET /api/admin/tenants
  * List all tenants
  */
-router.get('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get('/', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const status = req.query.status as string | undefined;
     const tenants = await tenantService.getAllTenants(status ? { status } : undefined);
@@ -26,7 +26,7 @@ router.get('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Resp
  * GET /api/admin/tenants/:id
  * Get tenant details
  */
-router.get('/:id', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get('/:id', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const tenant = await tenantService.getTenantById(req.params.id);
     if (!tenant) {
@@ -44,7 +44,7 @@ router.get('/:id', requireSuperAdmin(), async (req: AuthenticatedRequest, res: R
  * POST /api/admin/tenants
  * Create a new tenant
  */
-router.post('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post('/', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const data = createTenantSchema.parse(req.body);
     const userId = req.userId || req.session?.userId;
@@ -71,7 +71,7 @@ router.post('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Res
  * PATCH /api/admin/tenants/:id
  * Update a tenant
  */
-router.patch('/:id', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.patch('/:id', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const data = updateTenantSchema.parse(req.body);
     const userId = req.userId || req.session?.userId;
@@ -99,7 +99,7 @@ router.patch('/:id', requireSuperAdmin(), async (req: AuthenticatedRequest, res:
  * POST /api/admin/tenants/:id/suspend
  * Suspend a tenant
  */
-router.post('/:id/suspend', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post('/:id/suspend', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId || req.session?.userId;
 
@@ -122,7 +122,7 @@ router.post('/:id/suspend', requireSuperAdmin(), async (req: AuthenticatedReques
  * POST /api/admin/tenants/:id/activate
  * Activate a tenant
  */
-router.post('/:id/activate', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post('/:id/activate', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId || req.session?.userId;
 

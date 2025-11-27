@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { requireSuperAdmin, AuthenticatedRequest } from '../../middleware/permission';
+import { requireWildcardPermission, AuthenticatedRequest } from '../../middleware/permission';
 import { auditService } from '../../services/auditService';
 import { auditLogFilterSchema } from '../../schemas/adminSchemas';
 
@@ -10,7 +10,7 @@ const router: Router = Router();
  * GET /api/admin/audit-logs
  * Get global audit logs with filters
  */
-router.get('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get('/', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const filters = auditLogFilterSchema.parse({
       tenantId: req.query.tenantId,
@@ -46,7 +46,7 @@ router.get('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Resp
  * GET /api/admin/tenants/:tenantId/audit-logs
  * Get audit logs for a specific tenant
  */
-router.get('/tenants/:tenantId', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get('/tenants/:tenantId', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.params.tenantId;
     const filters = auditLogFilterSchema.parse({

@@ -55,9 +55,6 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
       return;
     }
 
-    // Check if user is super admin
-    const isSuperAdmin = await userRoleService.isSuperAdmin(userId);
-
     // Get current tenant if tenantId is set
     let currentTenant = null;
     if (tenantId) {
@@ -69,11 +66,11 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
     // If tenantId is set, also include tenant-specific roles
     const globalRoles = await userRoleService.getUserRoles(userId, null);
     let tenantRoles: typeof globalRoles = [];
-    
+
     if (tenantId) {
       tenantRoles = await userRoleService.getUserRoles(userId, tenantId);
     }
-    
+
     // Combine global and tenant roles, removing duplicates by role ID
     const allUserRoles = [...globalRoles, ...tenantRoles];
     const uniqueRolesMap = new Map();
@@ -82,7 +79,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
         uniqueRolesMap.set(ur.role.id, ur);
       }
     });
-    
+
     const roles = Array.from(uniqueRolesMap.values()).map((ur) => ({
       id: ur.role.id,
       slug: ur.role.slug,
@@ -123,7 +120,6 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
         : null,
       roles,
       permissions,
-      isSuperAdmin,
       policyVer,
     });
   } catch (error) {

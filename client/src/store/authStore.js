@@ -14,7 +14,6 @@ export const useAuthStore = create(
       currentTenant: null, // Current tenant details
       permissions: [], // User's effective permissions
       roles: [], // User's roles
-      isSuperAdmin: false, // Is user super admin
       policyVer: null, // Policy version for token staleness
       requiresTenantSelection: false, // Whether user needs to select tenant
 
@@ -44,7 +43,6 @@ export const useAuthStore = create(
           currentTenant: userData.currentTenant,
           permissions: userData.permissions || [],
           roles: userData.roles || [],
-          isSuperAdmin: userData.isSuperAdmin || false,
           policyVer: userData.policyVer || null,
         });
       },
@@ -69,7 +67,6 @@ export const useAuthStore = create(
           currentTenant: null,
           permissions: [],
           roles: [],
-          isSuperAdmin: false,
           policyVer: null,
           requiresTenantSelection: false,
         });
@@ -103,7 +100,6 @@ export const useAuthStore = create(
         currentTenant: state.currentTenant,
         permissions: state.permissions,
         roles: state.roles,
-        isSuperAdmin: state.isSuperAdmin,
         policyVer: state.policyVer,
         requiresTenantSelection: state.requiresTenantSelection,
       }),

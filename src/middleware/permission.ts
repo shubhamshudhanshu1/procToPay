@@ -2,6 +2,9 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth';
 import { permissionCheckService } from '../services/permissionCheckService';
 
+// Re-export AuthenticatedRequest for convenience (routes often import both permission middleware and types)
+export type { AuthenticatedRequest };
+
 /**
  * Permission Middleware
  *
@@ -48,7 +51,6 @@ export function requirePermission(permissionSlug: string) {
           tenantId
         );
         req.permissions = effectivePermissions.map((p) => p.permission_slug);
-        req.isSuperAdmin = effectivePermissions.some((p) => p.permission_slug === '*');
       }
 
       next();
@@ -98,7 +100,6 @@ export function requireAnyPermission(permissionSlugs: string[]) {
           tenantId
         );
         req.permissions = effectivePermissions.map((p) => p.permission_slug);
-        req.isSuperAdmin = effectivePermissions.some((p) => p.permission_slug === '*');
       }
 
       next();
@@ -148,7 +149,6 @@ export function requireAllPermissions(permissionSlugs: string[]) {
           tenantId
         );
         req.permissions = effectivePermissions.map((p) => p.permission_slug);
-        req.isSuperAdmin = effectivePermissions.some((p) => p.permission_slug === '*');
       }
 
       next();
@@ -160,11 +160,15 @@ export function requireAllPermissions(permissionSlugs: string[]) {
 }
 
 /**
- * Require super admin role
+ * Require wildcard permission (all permissions)
+ *
+ * Checks if user has wildcard permission ('*') at global level.
+ * This grants access to all system operations (global administration).
+ * More flexible than role-based checks - works with any role that has wildcard permission.
  *
  * @returns Middleware function
  */
-export function requireSuperAdmin() {
+export function requireWildcardPermission() {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.userId || req.session?.userId;
@@ -173,22 +177,33 @@ export function requireSuperAdmin() {
         return;
       }
 
-      const isSuperAdmin = await permissionCheckService.hasPermission(userId, '*', null);
+      const hasWildcardPermission = await permissionCheckService.hasPermission(userId, '*', null);
 
-      if (!isSuperAdmin) {
+      if (!hasWildcardPermission) {
         res.status(403).json({
-          error: 'Super administrator access required',
+          error: 'Global administrator access required',
         });
         return;
       }
-
-      req.isSuperAdmin = true;
       next();
     } catch (error) {
-      console.error('Super admin check error:', error);
+      console.error('Wildcard permission check error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+}
+
+/**
+ * Require super admin role
+ *
+ * @deprecated Use `requireWildcardPermission()` instead for better flexibility.
+ * This function is kept for backward compatibility.
+ *
+ * @returns Middleware function
+ */
+export function requireSuperAdmin() {
+  // Delegate to requireWildcardPermission for consistency
+  return requireWildcardPermission();
 }
 
 /**

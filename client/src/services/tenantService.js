@@ -3,7 +3,7 @@ import api from './api';
 export const tenantService = {
   /**
    * Get list of tenants user has access to
-   * @returns {Promise<{tenants: Array, isSuperAdmin: boolean}>}
+   * @returns {Promise<{tenants: Array}>}
    */
   getUserTenants: async () => {
     const response = await api.get('/auth/tenants');
@@ -13,7 +13,7 @@ export const tenantService = {
   /**
    * Select tenant context and get full access tokens
    * @param {string|null} tenantId - Tenant ID or null for global admin
-   * @returns {Promise<{accessToken: string, refreshToken: string, tenantId: string|null, isSuperAdmin: boolean}>}
+   * @returns {Promise<{accessToken: string, refreshToken: string, tenantId: string|null}>}
    */
   selectTenant: async (tenantId) => {
     const response = await api.post('/auth/session/select-tenant', { tenantId });

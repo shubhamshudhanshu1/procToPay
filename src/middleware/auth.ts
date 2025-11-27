@@ -9,7 +9,6 @@ export interface AuthenticatedRequest extends Request {
   tenantId?: string;
   permissions?: string[];
   roles?: string[];
-  isSuperAdmin?: boolean;
   policyVer?: number;
 }
 

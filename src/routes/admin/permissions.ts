@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { requireSuperAdmin, AuthenticatedRequest } from '../../middleware/permission';
+import { requireWildcardPermission, AuthenticatedRequest } from '../../middleware/permission';
 import { permissionService } from '../../services/permissionService';
 import { createPermissionSchema } from '../../schemas/adminSchemas';
 
@@ -10,7 +10,7 @@ const router: Router = Router();
  * GET /api/admin/permissions
  * List all permissions
  */
-router.get('/', requireSuperAdmin(), async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get('/', requireWildcardPermission(), async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const permissions = await permissionService.getAllPermissions();
     res.json({ success: true, permissions });
@@ -25,7 +25,7 @@ router.get('/', requireSuperAdmin(), async (_req: AuthenticatedRequest, res: Res
  * GET /api/admin/permissions/:id
  * Get permission details
  */
-router.get('/:id', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get('/:id', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     // Get by slug (since we use slug as identifier)
     const permission = await permissionService.getPermissionBySlug(req.params.id);
@@ -44,7 +44,7 @@ router.get('/:id', requireSuperAdmin(), async (req: AuthenticatedRequest, res: R
  * POST /api/admin/permissions
  * Create a new permission
  */
-router.post('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.post('/', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const data = createPermissionSchema.parse(req.body);
     const userId = req.userId || req.session?.userId;
@@ -71,7 +71,7 @@ router.post('/', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Res
  * GET /api/admin/permissions/module/:module
  * Get permissions by module
  */
-router.get('/module/:module', requireSuperAdmin(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.get('/module/:module', requireWildcardPermission(), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const permissions = await permissionService.getPermissionsByModule(req.params.module);
     res.json({ success: true, permissions });

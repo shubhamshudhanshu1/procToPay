@@ -1,11 +1,19 @@
 import { useAuthStore } from '../store/authStore';
 
 /**
- * Hook for checking user permissions
- * @returns {Object} Permission checking functions
+ * Hook for checking user permissions and roles
+ * @returns {Object} Permission and role checking functions
  */
 export const usePermissions = () => {
-  const { permissions, isSuperAdmin } = useAuthStore();
+  const { permissions, roles } = useAuthStore();
+
+  /**
+   * Check if user has wildcard permission (all permissions)
+   * @returns {boolean}
+   */
+  const hasWildcardPermission = () => {
+    return permissions.includes('*');
+  };
 
   /**
    * Check if user has a specific permission
@@ -13,8 +21,9 @@ export const usePermissions = () => {
    * @returns {boolean}
    */
   const hasPermission = (permissionSlug) => {
-    if (isSuperAdmin) {
-      return true; // Super admin has all permissions
+    // User with wildcard permission has all permissions
+    if (hasWildcardPermission()) {
+      return true;
     }
     return permissions.includes(permissionSlug);
   };
@@ -25,7 +34,8 @@ export const usePermissions = () => {
    * @returns {boolean}
    */
   const hasAnyPermission = (permissionSlugs) => {
-    if (isSuperAdmin) {
+    // User with wildcard permission has all permissions
+    if (hasWildcardPermission()) {
       return true;
     }
     return permissionSlugs.some((slug) => permissions.includes(slug));
@@ -37,18 +47,51 @@ export const usePermissions = () => {
    * @returns {boolean}
    */
   const hasAllPermissions = (permissionSlugs) => {
-    if (isSuperAdmin) {
+    // User with wildcard permission has all permissions
+    if (hasWildcardPermission()) {
       return true;
     }
     return permissionSlugs.every((slug) => permissions.includes(slug));
+  };
+
+  /**
+   * Check if user has a global role (for role-based checks when needed)
+   * @param {string} roleSlug - Role slug (e.g., 'super_admin', 'system_admin')
+   * @returns {boolean}
+   */
+  const hasGlobalRole = (roleSlug) => {
+    if (!roles || roles.length === 0) return false;
+    return roles.some((role) => role.slug === roleSlug && role.scope === 'global');
+  };
+
+  /**
+   * Check if user has any of the specified global roles
+   * @param {string[]} roleSlugs - Array of role slugs
+   * @returns {boolean}
+   */
+  const hasAnyGlobalRole = (roleSlugs) => {
+    return roleSlugs.some((slug) => hasGlobalRole(slug));
+  };
+
+  /**
+   * Check if user has a tenant role (for role-based checks when needed)
+   * @param {string} roleSlug - Role slug (e.g., 'tenant_admin')
+   * @returns {boolean}
+   */
+  const hasTenantRole = (roleSlug) => {
+    if (!roles || roles.length === 0) return false;
+    return roles.some((role) => role.slug === roleSlug && role.scope === 'tenant');
   };
 
   return {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    isSuperAdmin,
+    hasGlobalRole,
+    hasAnyGlobalRole,
+    hasTenantRole,
+    hasWildcardPermission,
     permissions,
+    roles,
   };
 };
-

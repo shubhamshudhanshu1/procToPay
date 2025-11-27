@@ -38,11 +38,12 @@ const adminMenuItems = [
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { hasPermission, isSuperAdmin } = usePermissions();
+  const { hasPermission, hasWildcardPermission } = usePermissions();
 
   // Filter menu items based on permissions
+  // Users with wildcard permission ('*') have all permissions
   const visibleMenuItems = adminMenuItems.filter(
-    (item) => isSuperAdmin || hasPermission(item.permission)
+    (item) => hasWildcardPermission() || hasPermission(item.permission)
   );
 
   const isActive = (path) => location.pathname.startsWith(path);

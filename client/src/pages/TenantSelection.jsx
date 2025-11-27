@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Business, AdminPanelSettings, Add } from '@mui/icons-material';
 import { useAuthStore } from '../store/authStore';
+import { usePermissions } from '../hooks/usePermissions';
 import { tenantService } from '../services/tenantService';
 import { useTenantSelection } from '../hooks/useGlobalAdminContext';
 import AppHeader from '../components/layout/AppHeader';
@@ -21,15 +22,18 @@ import AppHeader from '../components/layout/AppHeader';
 export default function TenantSelection() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { hasPermission } = usePermissions();
   const {
     selectTenantContext,
     selectGlobalAdminContext,
     loading: selecting,
   } = useTenantSelection();
   const [tenants, setTenants] = useState([]);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Use permission check for UI logic - users with tenant:view permission can access global admin
+  const canAccessGlobalAdmin = hasPermission('tenant:view');
 
   useEffect(() => {
     loadTenants();
@@ -41,7 +45,6 @@ export default function TenantSelection() {
       setError(null);
       const response = await tenantService.getUserTenants();
       setTenants(response.tenants || []);
-      setIsSuperAdmin(response.isSuperAdmin || false);
     } catch (err) {
       console.error('Failed to load tenants:', err);
       setError(err.response?.data?.error || 'Failed to load tenants');
@@ -67,8 +70,8 @@ export default function TenantSelection() {
   };
 
   const handleCreateTenant = async () => {
-    // For super admins, select global admin context first to allow access to admin routes
-    if (isSuperAdmin) {
+    // For users with global admin access, select global admin context first to allow access to admin routes
+    if (canAccessGlobalAdmin) {
       try {
         await selectGlobalAdminContext({
           navigateTo: '/admin/tenants/create',
@@ -106,7 +109,7 @@ export default function TenantSelection() {
     );
   }
 
-  if (!isSuperAdmin && error && tenants.length === 0) {
+  if (!canAccessGlobalAdmin && error && tenants.length === 0) {
     return (
       <Box
         sx={{
@@ -200,8 +203,8 @@ export default function TenantSelection() {
               </Grid>
             ))}
 
-            {/* Create Tenant Button (Super Admin only) */}
-            {isSuperAdmin && (
+            {/* Create Tenant Button (Users with global admin access) */}
+            {canAccessGlobalAdmin && (
               <Grid item xs={12} sm={6} md={4}>
                 <Card
                   sx={{
@@ -245,7 +248,7 @@ export default function TenantSelection() {
             )}
           </Grid>
 
-          {tenants.length === 0 && !isSuperAdmin && (
+          {tenants.length === 0 && !canAccessGlobalAdmin && (
             <Box sx={{ mt: 4, textAlign: 'center' }}>
               <Alert severity="info">
                 You don't have access to any tenants. Please contact an administrator.

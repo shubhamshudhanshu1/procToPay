@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth';
 import { tenantService } from '../services/tenantService';
-import { userRoleService } from '../services/userRoleService';
+import { permissionCheckService } from '../services/permissionCheckService';
 
 /**
  * Tenant Context Middleware
@@ -47,11 +47,12 @@ export function requireTenantContext() {
         return;
       }
 
-      // Check if user is super admin (super admins have access to all tenants)
-      const isSuperAdmin = await userRoleService.isSuperAdmin(userId);
+      // Check if user has permission to view all tenants (global admin access)
+      // Users with tenant:view permission at global level have access to all tenants
+      const canViewAllTenants = await permissionCheckService.hasPermission(userId, 'tenant:view', null);
 
-      // For non-super-admin users, verify they have access to this tenant
-      if (!isSuperAdmin) {
+      // For users without global admin access, verify they have access to this tenant
+      if (!canViewAllTenants) {
         const userTenants = await userRoleService.getUserTenants(userId);
         const hasAccess = userTenants.some((t: any) => t.id === tenantId);
 

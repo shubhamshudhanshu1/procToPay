@@ -76,7 +76,7 @@ app.get('/csrf', getCSRFToken);
 app.use('/api/config', configRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', tenantRoutes); // Tenant selection endpoints
-app.use('/api/admin', adminRoutes); // Admin endpoints (super admin only)
+app.use('/api/admin', adminRoutes); // Admin endpoints (Global admin only)
 app.use('/api/tenants', tenantScopedRoutes); // Tenant-scoped endpoints
 app.use('/api/me', meRoutes);
 

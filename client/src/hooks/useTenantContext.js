@@ -7,7 +7,7 @@ import { usePermissions } from './usePermissions';
  */
 export const useTenantContext = () => {
   const { tenantId, currentTenant, selectTenant, clearTenant } = useAuthStore();
-  const { isSuperAdmin } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   /**
    * Check if user is in tenant context
@@ -19,10 +19,12 @@ export const useTenantContext = () => {
 
   /**
    * Check if user is in global admin context
+   * Uses permission check instead of role check for flexibility
    * @returns {boolean}
    */
   const isInGlobalContext = () => {
-    return tenantId === null && isSuperAdmin;
+    // Check if user has tenant:view permission at global level (more flexible than role check)
+    return tenantId === null && hasPermission('tenant:view');
   };
 
   /**
@@ -44,7 +46,5 @@ export const useTenantContext = () => {
     isInTenantContext: isInTenantContext(),
     isInGlobalContext: isInGlobalContext(),
     getContextName,
-    isSuperAdmin,
   };
 };
-

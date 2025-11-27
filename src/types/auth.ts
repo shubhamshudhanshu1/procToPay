@@ -12,7 +12,6 @@ export interface AuthContext {
   tenantId?: string; // null for global admin context
   permissions: string[]; // Array of permission slugs
   roles: string[]; // Array of role slugs
-  isSuperAdmin: boolean;
   policyVer: number; // Policy version for token staleness detection
 }
 
@@ -34,7 +33,6 @@ export interface UserWithContext {
   roles: Role[];
   permissions: Permission[];
   effectivePermissions: EffectivePermission[];
-  isSuperAdmin: boolean;
   policyVer: number;
 }
 

@@ -21,13 +21,15 @@ import {
   AdminPanelSettings,
 } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useTenantContext } from '../../hooks/useTenantContext';
 import { useGlobalAdminContext } from '../../hooks/useGlobalAdminContext';
 
 export default function AppHeader({ title, showContext = true }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user, roles, isSuperAdmin } = useAuthStore();
+  const { logout, user, roles } = useAuthStore();
+  const { hasPermission } = usePermissions();
   const { getContextName, clearTenant, isInGlobalContext } = useTenantContext();
   const { selectGlobalAdminContext } = useGlobalAdminContext();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -352,7 +354,7 @@ export default function AppHeader({ title, showContext = true }) {
                 </MenuItem>
               </div>
             )}
-            {isSuperAdmin && (isTenantSelectionPage || !isInGlobalContext) && (
+            {hasPermission('tenant:view') && (isTenantSelectionPage || !isInGlobalContext) && (
               <MenuItem
                 onClick={handleAdministration}
                 sx={{
