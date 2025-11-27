@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authService } from '../services/authService';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import { redis } from '../lib/redis';
 import {
   loginRequestSchema,
   loginVerifySchema,
@@ -211,6 +212,18 @@ router.post(
     try {
       const userId = req.userId || req.session?.userId;
       const tenantId = req.tenantId || req.session?.tenantId;
+      const sessionId = req.sessionID;
+
+      // Clean up Redis session (for backward compatibility with session-based auth)
+      if (sessionId && userId) {
+        try {
+          await redis.del(`sess:${sessionId}`);
+          await redis.srem(`user_session_index:${userId}`, sessionId);
+        } catch (redisError) {
+          // Log but don't fail logout if Redis cleanup fails
+          console.warn('Redis session cleanup error:', redisError);
+        }
+      }
 
       // Revoke refresh tokens for this user (and tenant if specified)
       if (userId) {

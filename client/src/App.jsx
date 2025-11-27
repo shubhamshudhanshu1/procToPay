@@ -6,9 +6,18 @@ import { useAuthStore } from './store/authStore';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
+import TenantSelection from './pages/TenantSelection';
 import Dashboard from './pages/Dashboard';
-import UserManagement from './pages/UserManagement';
+import UserManagementTenant from './pages/UserManagement';
+import AdminLayout from './pages/admin/AdminLayout';
+import Tenants from './pages/admin/Tenants';
+import CreateTenant from './pages/admin/CreateTenant';
+import Roles from './pages/admin/Roles';
+import Permissions from './pages/admin/Permissions';
+import UserManagement from './pages/admin/UserManagement';
+import AuditLogs from './pages/admin/AuditLogs';
 import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRouteWithPermission from './components/ProtectedRouteWithPermission';
 import AuthInitializer from './components/AuthInitializer';
 import { theme } from './theme';
 
@@ -26,6 +35,14 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/verify-otp" element={<VerifyOTP />} />
               <Route
+                path="/tenant-selection"
+                element={
+                  <ProtectedRoute>
+                    <TenantSelection />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
@@ -37,10 +54,68 @@ function App() {
                 path="/user-management"
                 element={
                   <ProtectedRoute>
-                    <UserManagement />
+                    <UserManagementTenant />
                   </ProtectedRoute>
                 }
               />
+              {/* Admin Routes */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRouteWithPermission permission="tenant:view">
+                    <AdminLayout />
+                  </ProtectedRouteWithPermission>
+                }
+              >
+                <Route
+                  path="tenants"
+                  element={
+                    <ProtectedRouteWithPermission permission="tenant:view">
+                      <Tenants />
+                    </ProtectedRouteWithPermission>
+                  }
+                />
+                <Route
+                  path="tenants/create"
+                  element={
+                    <ProtectedRouteWithPermission permission="tenant:create">
+                      <CreateTenant />
+                    </ProtectedRouteWithPermission>
+                  }
+                />
+                <Route
+                  path="roles"
+                  element={
+                    <ProtectedRouteWithPermission permission="role:view">
+                      <Roles />
+                    </ProtectedRouteWithPermission>
+                  }
+                />
+                <Route
+                  path="permissions"
+                  element={
+                    <ProtectedRouteWithPermission permission="permission:view">
+                      <Permissions />
+                    </ProtectedRouteWithPermission>
+                  }
+                />
+                <Route
+                  path="users"
+                  element={
+                    <ProtectedRouteWithPermission permission="user:view">
+                      <UserManagement />
+                    </ProtectedRouteWithPermission>
+                  }
+                />
+                <Route
+                  path="audit-logs"
+                  element={
+                    <ProtectedRouteWithPermission permission="audit:view">
+                      <AuditLogs />
+                    </ProtectedRouteWithPermission>
+                  }
+                />
+              </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </AuthInitializer>

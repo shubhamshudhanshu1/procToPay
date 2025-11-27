@@ -7,13 +7,53 @@ export const useAuthStore = create(
     (set, get) => ({
       user: null,
       token: null,
+      accessToken: null, // JWT access token
+      refreshToken: null, // JWT refresh token
       isAuthenticated: false,
+      tenantId: null, // Current tenant context
+      currentTenant: null, // Current tenant details
+      permissions: [], // User's effective permissions
+      roles: [], // User's roles
+      isSuperAdmin: false, // Is user super admin
+      policyVer: null, // Policy version for token staleness
+      requiresTenantSelection: false, // Whether user needs to select tenant
 
-      login: (userData, token) => {
+      login: (userData, sessionToken) => {
         set({
           user: userData,
-          token,
+          token: sessionToken, // Short-lived session token
           isAuthenticated: true,
+          requiresTenantSelection: true, // After OTP verify, tenant selection is needed
+        });
+      },
+
+      selectTenant: (tenantData, accessToken, refreshToken) => {
+        set({
+          tenantId: tenantData.tenantId,
+          currentTenant: tenantData.tenant,
+          accessToken,
+          refreshToken,
+          requiresTenantSelection: false,
+        });
+      },
+
+      updateUserContext: (userData) => {
+        set({
+          user: userData,
+          tenantId: userData.currentTenant?.id || null,
+          currentTenant: userData.currentTenant,
+          permissions: userData.permissions || [],
+          roles: userData.roles || [],
+          isSuperAdmin: userData.isSuperAdmin || false,
+          policyVer: userData.policyVer || null,
+        });
+      },
+
+      clearTenant: () => {
+        set({
+          tenantId: null,
+          currentTenant: null,
+          requiresTenantSelection: true,
         });
       },
 
@@ -22,7 +62,16 @@ export const useAuthStore = create(
         set({
           user: null,
           token: null,
+          accessToken: null,
+          refreshToken: null,
           isAuthenticated: false,
+          tenantId: null,
+          currentTenant: null,
+          permissions: [],
+          roles: [],
+          isSuperAdmin: false,
+          policyVer: null,
+          requiresTenantSelection: false,
         });
 
         // Call logout API to destroy session on server
@@ -47,7 +96,16 @@ export const useAuthStore = create(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
+        tenantId: state.tenantId,
+        currentTenant: state.currentTenant,
+        permissions: state.permissions,
+        roles: state.roles,
+        isSuperAdmin: state.isSuperAdmin,
+        policyVer: state.policyVer,
+        requiresTenantSelection: state.requiresTenantSelection,
       }),
     }
   )

@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { z } from 'zod';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
@@ -20,69 +20,64 @@ const selectTenantSchema = z.object({
 /**
  * GET /api/auth/tenants
  * Get list of tenants user has access to
- * Super admins see all tenants + global admin option
+ * Super admins see all tenants
  */
-router.get('/tenants', requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.userId || req.session?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+router.get(
+  '/tenants',
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.userId || req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
 
-    // Check if user is super admin
-    const isSuperAdmin = await userRoleService.isSuperAdmin(userId);
+      // Check if user is super admin
+      const isSuperAdmin = await userRoleService.isSuperAdmin(userId);
 
-    let tenants: any[] = [];
+      let tenants: any[] = [];
 
-    if (isSuperAdmin) {
-      // Super admin sees all tenants
-      const allTenants = await tenantService.getAllTenants({ status: 'active' });
-      tenants = allTenants.map((tenant) => ({
-        id: tenant.id,
-        name: tenant.name,
-        code: tenant.code,
-        status: tenant.status,
-        userRoles: [], // Super admin doesn't need explicit roles per tenant
-      }));
+      if (isSuperAdmin) {
+        // Super admin sees all tenants
+        const allTenants = await tenantService.getAllTenants({ status: 'active' });
+        tenants = allTenants.map((tenant) => ({
+          id: tenant.id,
+          name: tenant.name,
+          code: tenant.code,
+          status: tenant.status,
+          userRoles: [], // Super admin doesn't need explicit roles per tenant
+        }));
+      } else {
+        // Regular user sees only tenants they have access to
+        const userTenants = await userRoleService.getUserTenants(userId);
+        tenants = userTenants.map((tenant: any) => ({
+          id: tenant.id,
+          name: tenant.name,
+          code: tenant.code,
+          status: tenant.status,
+          userRoles: tenant.userRoles.map((ur: any) => ({
+            roleSlug: ur.role.slug,
+            roleName: ur.role.name,
+            status: ur.status,
+          })),
+        }));
+      }
 
-      // Add global admin option for super admin
-      tenants.unshift({
-        id: null,
-        name: 'Global Administration',
-        code: 'global',
-        status: 'active',
-        userRoles: [{ roleSlug: 'super_admin', roleName: 'Super Admin', status: 'active' }],
+      res.json({
+        success: true,
+        isSuperAdmin,
+        tenants,
       });
-    } else {
-      // Regular user sees only tenants they have access to
-      const userTenants = await userRoleService.getUserTenants(userId);
-      tenants = userTenants.map((tenant: any) => ({
-        id: tenant.id,
-        name: tenant.name,
-        code: tenant.code,
-        status: tenant.status,
-        userRoles: tenant.userRoles.map((ur: any) => ({
-          roleSlug: ur.role.slug,
-          roleName: ur.role.name,
-          status: ur.status,
-        })),
-      }));
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return next(error);
+      }
+      const err: any = new Error(error.message || 'An error occurred');
+      err.statusCode = error.statusCode || 500;
+      next(err);
     }
-
-    res.json({
-      success: true,
-      isSuperAdmin,
-      tenants,
-    });
-  } catch (error: any) {
-    if (error instanceof ZodError) {
-      return next(error);
-    }
-    const err: any = new Error(error.message || 'An error occurred');
-    err.statusCode = error.statusCode || 500;
-    next(err);
   }
-});
+);
 
 /**
  * POST /api/auth/session/select-tenant
@@ -190,4 +185,3 @@ router.post(
 );
 
 export default router;
-

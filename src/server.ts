@@ -8,6 +8,8 @@ import { env } from './config/env';
 import { sessionConfig } from './config/session';
 import authRoutes from './routes/authRoutes';
 import tenantRoutes from './routes/tenantRoutes';
+import tenantScopedRoutes from './routes/tenants';
+import adminRoutes from './routes/admin';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import meRoutes from './routes/me';
 import configRoutes from './routes/configRoutes';
@@ -74,6 +76,8 @@ app.get('/csrf', getCSRFToken);
 app.use('/api/config', configRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', tenantRoutes); // Tenant selection endpoints
+app.use('/api/admin', adminRoutes); // Admin endpoints (super admin only)
+app.use('/api/tenants', tenantScopedRoutes); // Tenant-scoped endpoints
 app.use('/api/me', meRoutes);
 
 // 404 handler

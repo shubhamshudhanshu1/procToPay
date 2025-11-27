@@ -14,9 +14,11 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().token;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const { accessToken, token } = useAuthStore.getState();
+    // Prefer accessToken (JWT) over token (session token)
+    const authToken = accessToken || token;
+    if (authToken) {
+      config.headers.Authorization = `Bearer ${authToken}`;
     }
     return config;
   },
@@ -28,21 +30,47 @@ api.interceptors.request.use(
 // Flag to prevent recursive logout calls
 let isLoggingOut = false;
 
-// Response interceptor to handle auth errors
+// Response interceptor to handle auth errors and token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const originalRequest = error.config;
+
     if (error.response?.status === 401) {
       // Skip logout handling if:
       // 1. Already logging out (prevent infinite loop)
       // 2. This is a logout request itself (don't logout on logout)
       // 3. Already on auth pages
+      // 4. This is a refresh token request (to prevent infinite refresh loop)
       const isLogoutRequest = error.config?.url?.includes('/logout');
+      const isRefreshRequest = error.config?.url?.includes('/auth/refresh');
       const currentPath = window.location.pathname;
-      const isAuthPage = ['/login', '/register', '/verify-otp'].includes(currentPath);
+      const isAuthPage = ['/login', '/register', '/verify-otp', '/tenant-selection'].includes(currentPath);
 
-      if (isLoggingOut || isLogoutRequest || isAuthPage) {
+      if (isLoggingOut || isLogoutRequest || isRefreshRequest || isAuthPage) {
         return Promise.reject(error);
+      }
+
+      // Try to refresh token if we have a refresh token
+      const { refreshToken, requiresTenantSelection } = useAuthStore.getState();
+      
+      if (refreshToken && !requiresTenantSelection && !originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        try {
+          const { authService } = await import('./authService');
+          const response = await authService.refreshToken(refreshToken);
+          
+          // Update access token in store
+          useAuthStore.getState().accessToken = response.accessToken;
+          
+          // Retry original request with new token
+          originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          // Refresh failed, logout user
+          console.error('Token refresh failed:', refreshError);
+        }
       }
 
       // Token expired or invalid, logout user
@@ -57,8 +85,10 @@ api.interceptors.response.use(
         isLoggingOut = false;
       }
 
-      // Only redirect if not already on login or verify-otp pages
-      if (!isAuthPage) {
+      // Redirect based on context
+      if (requiresTenantSelection) {
+        window.location.href = '/tenant-selection';
+      } else if (!isAuthPage) {
         window.location.href = '/login';
       }
     }

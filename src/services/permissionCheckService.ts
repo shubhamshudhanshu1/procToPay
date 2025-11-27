@@ -37,6 +37,7 @@ class PermissionCheckService {
     // Super admin has all permissions (we'll return a special marker)
     if (isSuperAdmin) {
       // Return a marker that indicates all permissions
+      // This is handled specially in permission checks
       return [{ permission_slug: '*', module: '*', action: '*' }] as any;
     }
 
@@ -75,7 +76,7 @@ class PermissionCheckService {
    * Check if user has a specific permission
    *
    * @param userId User UUID
-   * @param permissionSlug Permission slug (e.g., 'tenant:create', 'user:edit')
+   * @param permissionSlug Permission slug (e.g., 'tenant:create', 'user:edit') or '*' for super admin check
    * @param tenantId Optional tenant UUID (null for global context)
    * @returns true if user has the permission
    */
@@ -90,11 +91,19 @@ class PermissionCheckService {
       return true;
     }
 
+    // Special case: '*' means super admin check
+    if (permissionSlug === '*') {
+      return isSuperAdmin;
+    }
+
     // Get user's effective permissions
     const permissions = await this.getUserEffectivePermissions(userId, tenantId);
 
     // Check if permission exists in the list
-    return permissions.some((p) => p.permission_slug === permissionSlug);
+    // Handle special marker for super admin (permission_slug === '*')
+    return permissions.some(
+      (p) => p.permission_slug === permissionSlug || p.permission_slug === '*'
+    );
   }
 
   /**

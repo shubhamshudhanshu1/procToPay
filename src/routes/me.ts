@@ -65,8 +65,25 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
     }
 
     // Get user's roles
-    const userRoles = await userRoleService.getUserRoles(userId, tenantId || undefined);
-    const roles = userRoles.map((ur) => ({
+    // Always include global roles (tenantId = null)
+    // If tenantId is set, also include tenant-specific roles
+    const globalRoles = await userRoleService.getUserRoles(userId, null);
+    let tenantRoles: typeof globalRoles = [];
+    
+    if (tenantId) {
+      tenantRoles = await userRoleService.getUserRoles(userId, tenantId);
+    }
+    
+    // Combine global and tenant roles, removing duplicates by role ID
+    const allUserRoles = [...globalRoles, ...tenantRoles];
+    const uniqueRolesMap = new Map();
+    allUserRoles.forEach((ur) => {
+      if (!uniqueRolesMap.has(ur.role.id)) {
+        uniqueRolesMap.set(ur.role.id, ur);
+      }
+    });
+    
+    const roles = Array.from(uniqueRolesMap.values()).map((ur) => ({
       id: ur.role.id,
       slug: ur.role.slug,
       name: ur.role.name,
@@ -168,34 +185,6 @@ router.put('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
       return;
     }
     console.error('Update profile error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST /logout
-router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const sessionId = req.sessionID;
-    const userId = req.session.userId;
-
-    if (sessionId && userId) {
-      // Remove session from Redis
-      await redis.del(`sess:${sessionId}`);
-
-      // Remove session from user's session index
-      await redis.srem(`user_session_index:${userId}`, sessionId);
-    }
-
-    // Clear session cookie
-    req.session.destroy((err: any) => {
-      if (err) {
-        console.error('Session destroy error:', err);
-      }
-    });
-
-    res.status(204).send();
-  } catch (error) {
-    console.error('Logout error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

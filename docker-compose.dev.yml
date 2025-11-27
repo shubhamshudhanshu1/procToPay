@@ -55,6 +55,7 @@ services:
       - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json
       - ./prisma:/app/prisma
+      - ./scripts:/app/scripts
       # Exclude node_modules to use container's version
       - /app/node_modules
     environment:

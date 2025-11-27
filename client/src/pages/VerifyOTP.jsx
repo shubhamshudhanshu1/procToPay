@@ -210,7 +210,7 @@ const VerifyOTP = () => {
     }
 
     try {
-      await authService.verifyOTP(contact.value, otpValue);
+      const response = await authService.verifyOTP(contact.value, otpValue);
 
       if (isRegistration) {
         setVerifiedContacts((prev) => [...prev, contact.type]);
@@ -221,9 +221,18 @@ const VerifyOTP = () => {
         });
         setLoadingStates((prev) => ({ ...prev, [contact.type]: false }));
       } else {
-        const user = await authService.getCurrentUser();
-        login(user, null);
-        navigate('/dashboard');
+        // Login flow - check if tenant selection is needed
+        const { user: userData, sessionToken, requiresTenantSelection } = response;
+        login(userData, sessionToken);
+        
+        if (requiresTenantSelection) {
+          navigate('/tenant-selection');
+        } else {
+          // If tenant already selected, fetch full context and go to dashboard
+          const user = await authService.getCurrentUser();
+          useAuthStore.getState().updateUserContext(user);
+          navigate('/dashboard');
+        }
       }
 
       setSuccess(`${contact.type === 'email' ? 'Email' : 'Phone'} verified successfully!`);
@@ -252,16 +261,17 @@ const VerifyOTP = () => {
     if (isRegistration && verifiedContacts.length === contactsToVerify.length) {
       const completeAuth = async () => {
         try {
-          const user = await authService.getCurrentUser();
-          login(user, null);
-          navigate('/dashboard');
+          // For registration, we need to call register/verify endpoint
+          // This should return the same structure as login/verify
+          // For now, redirect to tenant selection after registration
+          navigate('/tenant-selection');
         } catch (err) {
           setError('Failed to complete authentication. Please try again.');
         }
       };
       completeAuth();
     }
-  }, [verifiedContacts, contactsToVerify.length, isRegistration, login, navigate]);
+  }, [verifiedContacts, contactsToVerify.length, isRegistration, navigate]);
 
   // Handle resend OTP
   const handleResendOTP = async (contact) => {

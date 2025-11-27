@@ -16,6 +16,11 @@ export const authService = {
     return response.data;
   },
 
+  refreshToken: async (refreshToken) => {
+    const response = await api.post('/auth/refresh', { refreshToken });
+    return response.data;
+  },
+
   login: async (credentials) => {
     const response = await api.post('/auth/login', credentials);
     return response.data;
@@ -37,7 +42,7 @@ export const authService = {
   },
 
   logout: async () => {
-    const response = await api.post('/auth/me/logout');
+    const response = await api.post('/auth/logout');
     return response.data;
   },
 };

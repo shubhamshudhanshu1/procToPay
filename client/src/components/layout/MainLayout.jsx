@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -9,13 +8,7 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
-  Divider,
-  IconButton,
-  Menu,
-  MenuItem,
-  Avatar,
 } from '@mui/material';
-import { Person, Settings as SettingsIcon, Logout as LogoutIcon } from '@mui/icons-material';
 import {
   ShoppingCart,
   Inventory2,
@@ -33,9 +26,10 @@ import {
   QrCode,
   IntegrationInstructions,
   Groups,
-  Logout,
 } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
+import { useTenantContext } from '../../hooks/useTenantContext';
+import AppHeader from './AppHeader';
 
 const drawerWidth = 280;
 
@@ -76,49 +70,8 @@ const menuItems = [
 const MainLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user } = useAuthStore();
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
-
-  const handleAvatarClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleProfileClick = () => {
-    handleMenuClose();
-    navigate('/dashboard');
-  };
-
-  const handleSettingsClick = () => {
-    handleMenuClose();
-    navigate('/settings');
-  };
-
-  const handleLogout = async () => {
-    handleMenuClose();
-    await logout();
-    navigate('/login');
-  };
 
   const isActive = (path) => location.pathname === path;
-
-  // Get user initials for avatar
-  const getUserInitials = () => {
-    if (user?.firstName && user?.lastName) {
-      return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
-    }
-    if (user?.firstName) {
-      return user.firstName.charAt(0).toUpperCase();
-    }
-    if (user?.email) {
-      return user.email.charAt(0).toUpperCase();
-    }
-    return 'U';
-  };
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F5F5F5' }}>
@@ -230,31 +183,6 @@ const MainLayout = ({ children }) => {
             </Box>
           ))}
         </Box>
-
-        {/* Logout */}
-        <Box sx={{ borderTop: '1px solid #E0E0E0', p: 1.5 }}>
-          <ListItemButton
-            onClick={handleLogout}
-            sx={{
-              borderRadius: 1,
-              '&:hover': {
-                backgroundColor: '#FAFAFA',
-              },
-              py: 1,
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 40, color: '#6C757D' }}>
-              <Logout fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary="Logout"
-              primaryTypographyProps={{
-                fontSize: '0.875rem',
-                color: '#6C757D',
-              }}
-            />
-          </ListItemButton>
-        </Box>
       </Drawer>
 
       {/* Main Content */}
@@ -267,209 +195,7 @@ const MainLayout = ({ children }) => {
         }}
       >
         {/* Header */}
-        <Box
-          sx={{
-            backgroundColor: '#FFFFFF',
-            borderBottom: '1px solid #E0E0E0',
-            px: 3,
-            py: 1.5,
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            position: 'relative',
-          }}
-        >
-          {/* Center Content */}
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flex: 1,
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <Box
-                sx={{
-                  width: 24,
-                  height: 24,
-                  backgroundColor: '#6C757D',
-                  borderRadius: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Typography variant="h5" sx={{ color: 'white', fontWeight: 'bold' }}>
-                  ₹
-                </Typography>
-              </Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: '#343A40',
-                  fontSize: '1rem',
-                }}
-              >
-                ProcPay - AI Based Procure to Pay ToT & Scheme Management System
-              </Typography>
-            </Box>
-            <Typography
-              variant="body2"
-              sx={{
-                color: '#6C757D',
-                fontSize: '0.875rem',
-              }}
-            >
-              by NexProcureAI
-            </Typography>
-          </Box>
-
-          {/* Avatar Menu - Rightmost */}
-          <Box>
-            <IconButton
-              onClick={handleAvatarClick}
-              sx={{
-                padding: 0,
-                '&:hover': {
-                  backgroundColor: 'transparent',
-                },
-              }}
-            >
-              <Avatar
-                sx={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: '#6C757D',
-                  cursor: 'pointer',
-                }}
-              >
-                {getUserInitials()}
-              </Avatar>
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={open}
-              onClose={handleMenuClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              PaperProps={{
-                sx: {
-                  mt: 1.5,
-                  minWidth: 280,
-                  borderRadius: 1,
-                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
-                },
-              }}
-            >
-              {/* User Details */}
-              <Box sx={{ px: 2, py: 2, borderBottom: '1px solid #E0E0E0' }}>
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    fontWeight: 600,
-                    color: '#343A40',
-                    mb: 0.5,
-                  }}
-                >
-                  {user?.firstName && user?.lastName
-                    ? `${user.firstName} ${user.lastName}`
-                    : user?.firstName || user?.email || 'User'}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: '#6C757D',
-                    fontSize: '0.8125rem',
-                  }}
-                >
-                  {user?.email || 'No email'}
-                </Typography>
-              </Box>
-
-              {/* Menu Items */}
-              <MenuItem
-                onClick={handleProfileClick}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  '&:hover': {
-                    backgroundColor: '#F0F0F0',
-                  },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Person fontSize="small" sx={{ color: '#6C757D' }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Profile"
-                  primaryTypographyProps={{
-                    fontSize: '0.875rem',
-                    color: '#343A40',
-                  }}
-                />
-              </MenuItem>
-              <MenuItem
-                onClick={handleSettingsClick}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  '&:hover': {
-                    backgroundColor: '#F0F0F0',
-                  },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <SettingsIcon fontSize="small" sx={{ color: '#6C757D' }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Settings"
-                  primaryTypographyProps={{
-                    fontSize: '0.875rem',
-                    color: '#343A40',
-                  }}
-                />
-              </MenuItem>
-              <Divider />
-              <MenuItem
-                onClick={handleLogout}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  '&:hover': {
-                    backgroundColor: '#F0F0F0',
-                  },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <LogoutIcon fontSize="small" sx={{ color: '#6C757D' }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Logout"
-                  primaryTypographyProps={{
-                    fontSize: '0.875rem',
-                    color: '#343A40',
-                  }}
-                />
-              </MenuItem>
-            </Menu>
-          </Box>
-        </Box>
+        <AppHeader />
 
         {/* Page Content */}
         <Box sx={{ p: 3 }}>{children}</Box>

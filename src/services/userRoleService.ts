@@ -16,10 +16,10 @@ class UserRoleService {
    * Get all roles for a user
    *
    * @param userId User UUID
-   * @param tenantId Optional tenant UUID to filter by
+   * @param tenantId Optional tenant UUID to filter by (null for global roles, undefined for all roles)
    * @returns List of user roles
    */
-  async getUserRoles(userId: string, tenantId?: string) {
+  async getUserRoles(userId: string, tenantId?: string | null) {
     const where: any = {
       userId,
       status: 'active',
