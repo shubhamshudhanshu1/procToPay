@@ -58,7 +58,7 @@ const ContactOTPCard = ({
 
       {/* OTP Input */}
       {!isVerified ? (
-        <>
+        <div>
           <Input
             label={`Enter OTP sent to your ${contact.type === 'email' ? 'email' : 'phone'}`}
             type="text"
@@ -126,7 +126,7 @@ const ContactOTPCard = ({
               Resend
             </Button>
           </Box>
-        </>
+        </div>
       ) : (
         <Box
           sx={{

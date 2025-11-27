@@ -224,13 +224,21 @@ const VerifyOTP = () => {
         // Login flow - check if tenant selection is needed
         const { user: userData, sessionToken, requiresTenantSelection } = response;
         login(userData, sessionToken);
-        
+
+        // Always fetch full user context (roles, permissions, etc.) after login
+        // This ensures essential user details are available in the UI
+        try {
+          const user = await authService.getCurrentUser();
+          useAuthStore.getState().updateUserContext(user);
+        } catch (err) {
+          console.warn('Failed to fetch user context after login:', err);
+          // Continue anyway - user can still proceed
+        }
+
         if (requiresTenantSelection) {
           navigate('/tenant-selection');
         } else {
-          // If tenant already selected, fetch full context and go to dashboard
-          const user = await authService.getCurrentUser();
-          useAuthStore.getState().updateUserContext(user);
+          // If tenant already selected, go to dashboard
           navigate('/dashboard');
         }
       }
@@ -261,9 +269,17 @@ const VerifyOTP = () => {
     if (isRegistration && verifiedContacts.length === contactsToVerify.length) {
       const completeAuth = async () => {
         try {
-          // For registration, we need to call register/verify endpoint
-          // This should return the same structure as login/verify
-          // For now, redirect to tenant selection after registration
+          // Fetch full user context (roles, permissions, etc.) after registration
+          // This ensures essential user details are available in the UI
+          try {
+            const user = await authService.getCurrentUser();
+            useAuthStore.getState().updateUserContext(user);
+          } catch (err) {
+            console.warn('Failed to fetch user context after registration:', err);
+            // Continue anyway - user can still proceed
+          }
+
+          // Redirect to tenant selection after registration
           navigate('/tenant-selection');
         } catch (err) {
           setError('Failed to complete authentication. Please try again.');

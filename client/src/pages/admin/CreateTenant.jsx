@@ -123,16 +123,13 @@ export default function CreateTenant() {
               <Button
                 type="submit"
                 variant="contained"
-                disabled={
-                  !formData.name.trim() ||
-                  createMutation.isLoading
-                }
+                disabled={!formData.name.trim() || createMutation.isLoading}
               >
                 {createMutation.isLoading ? (
-                  <>
+                  <div>
                     <CircularProgress size={20} sx={{ mr: 1 }} />
                     Creating...
-                  </>
+                  </div>
                 ) : (
                   'Create Tenant'
                 )}
@@ -144,4 +141,3 @@ export default function CreateTenant() {
     </Container>
   );
 }
-

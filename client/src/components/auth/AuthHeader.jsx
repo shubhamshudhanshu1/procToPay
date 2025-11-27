@@ -48,7 +48,7 @@ const AuthHeader = ({ title, subtitle, onBack }) => {
           </Typography>
         )}
         {!title && (
-          <>
+          <div>
             <Typography
               variant="h4"
               component="h1"
@@ -62,7 +62,7 @@ const AuthHeader = ({ title, subtitle, onBack }) => {
             <Typography variant="body2" sx={{ color: '#6C757D' }}>
               by NexProcureAI
             </Typography>
-          </>
+          </div>
         )}
         {subtitle && (
           <Typography variant="body2" sx={{ color: '#6C757D' }}>

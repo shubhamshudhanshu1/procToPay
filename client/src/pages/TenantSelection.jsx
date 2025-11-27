@@ -15,16 +15,21 @@ import {
 import { Business, AdminPanelSettings, Add } from '@mui/icons-material';
 import { useAuthStore } from '../store/authStore';
 import { tenantService } from '../services/tenantService';
+import { useTenantSelection } from '../hooks/useGlobalAdminContext';
 import AppHeader from '../components/layout/AppHeader';
 
 export default function TenantSelection() {
   const navigate = useNavigate();
-  const { user, selectTenant } = useAuthStore();
+  const { user } = useAuthStore();
+  const {
+    selectTenantContext,
+    selectGlobalAdminContext,
+    loading: selecting,
+  } = useTenantSelection();
   const [tenants, setTenants] = useState([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selecting, setSelecting] = useState(false);
 
   useEffect(() => {
     loadTenants();
@@ -47,31 +52,17 @@ export default function TenantSelection() {
 
   const handleTenantSelect = async (tenantId) => {
     try {
-      setSelecting(true);
-      const response = await tenantService.selectTenant(tenantId);
-
-      // Update auth store with tenant context and tokens
-      selectTenant(
-        {
-          tenantId: response.tenantId,
-          tenant: tenants.find((t) => t.id === tenantId) || null,
+      await selectTenantContext({
+        tenantId,
+        tenant: tenants.find((t) => t.id === tenantId) || null,
+        navigateTo: '/dashboard',
+        skipIfAlreadySelected: false,
+        onError: (err, errorMessage) => {
+          setError(errorMessage);
         },
-        response.accessToken,
-        response.refreshToken
-      );
-
-      // Fetch full user context
-      const { authService } = await import('../services/authService');
-      const userData = await authService.getCurrentUser();
-      useAuthStore.getState().updateUserContext(userData);
-
-      // Redirect to dashboard
-      navigate('/dashboard');
+      });
     } catch (err) {
-      console.error('Failed to select tenant:', err);
-      setError(err.response?.data?.error || 'Failed to select tenant');
-    } finally {
-      setSelecting(false);
+      // Error already handled by onError callback
     }
   };
 
@@ -79,31 +70,21 @@ export default function TenantSelection() {
     // For super admins, select global admin context first to allow access to admin routes
     if (isSuperAdmin) {
       try {
-        setSelecting(true);
-        const response = await tenantService.selectTenant(null);
-
-        // Update auth store with global admin context
-        selectTenant(
-          {
-            tenantId: null,
-            tenant: null,
+        await selectGlobalAdminContext({
+          navigateTo: '/admin/tenants/create',
+          skipIfAlreadyGlobal: false, // Always select even if already global
+          onError: (err, errorMessage) => {
+            console.error('Failed to select global admin context:', err);
+            setError(errorMessage);
+            // Still try to navigate
+            navigate('/admin/tenants/create');
           },
-          response.accessToken,
-          response.refreshToken
-        );
-
-        // Fetch full user context
-        const { authService } = await import('../services/authService');
-        const userData = await authService.getCurrentUser();
-        useAuthStore.getState().updateUserContext(userData);
-
-        // Navigate to create tenant page
-        navigate('/admin/tenants/create');
+        });
       } catch (err) {
-        console.error('Failed to select global admin context:', err);
+        console.error('Error in handleCreateTenant:', err);
         setError(err.response?.data?.error || 'Failed to access admin panel');
-      } finally {
-        setSelecting(false);
+        // Still try to navigate
+        navigate('/admin/tenants/create');
       }
     } else {
       navigate('/admin/tenants/create');

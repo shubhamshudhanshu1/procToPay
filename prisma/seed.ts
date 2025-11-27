@@ -236,13 +236,15 @@ const defaultRoles = [
     slug: 'super_admin',
     name: 'Super Administrator',
     scope: 'global' as const,
-    description: 'System-wide administrator with all permissions. Can manage tenants, roles, permissions, and users across the entire system.',
+    description:
+      'System-wide administrator with all permissions. Can manage tenants, roles, permissions, and users across the entire system.',
   },
   {
     slug: 'tenant_admin',
     name: 'Tenant Administrator',
     scope: 'tenant' as const,
-    description: 'Tenant-level administrator. Can manage users and roles within their assigned tenant.',
+    description:
+      'Tenant-level administrator. Can manage users and roles within their assigned tenant.',
   },
 ];
 
@@ -350,11 +352,14 @@ async function main() {
     }
   }
 
+  // Get role IDs for reuse in multiple sections
+  const superAdminRoleId = roleMap.get('super_admin');
+  const tenantAdminRoleId = roleMap.get('tenant_admin');
+
   // Assign permissions to roles
   console.log('\n🔗 Assigning permissions to roles...');
 
   // Super Admin: All permissions
-  const superAdminRoleId = roleMap.get('super_admin');
   if (superAdminRoleId) {
     const allPermissionIds = Array.from(permissionMap.values());
     const existingRolePerms = await prisma.rolePermission.findMany({
@@ -371,20 +376,17 @@ async function main() {
         })),
         skipDuplicates: true,
       });
-      console.log(`  ✅ super_admin: Assigned ${permissionsToAdd.length} permissions (total: ${allPermissionIds.length})`);
+      console.log(
+        `  ✅ super_admin: Assigned ${permissionsToAdd.length} permissions (total: ${allPermissionIds.length})`
+      );
     } else {
       console.log(`  ⏭️  super_admin: All permissions already assigned`);
     }
   }
 
   // Tenant Admin: Tenant-level permissions only
-  const tenantAdminRoleId = roleMap.get('tenant_admin');
   if (tenantAdminRoleId) {
-    const tenantAdminPermissions = [
-      'user:view',
-      'user:edit',
-      'user:revoke',
-    ];
+    const tenantAdminPermissions = ['user:view', 'user:edit', 'user:revoke'];
 
     const tenantAdminPermissionIds = tenantAdminPermissions
       .map((slug) => permissionMap.get(slug))
@@ -395,7 +397,9 @@ async function main() {
     });
     const existingPermissionIds = new Set(existingRolePerms.map((rp) => rp.permissionId));
 
-    const permissionsToAdd = tenantAdminPermissionIds.filter((id) => !existingPermissionIds.has(id));
+    const permissionsToAdd = tenantAdminPermissionIds.filter(
+      (id) => !existingPermissionIds.has(id)
+    );
     if (permissionsToAdd.length > 0) {
       await prisma.rolePermission.createMany({
         data: permissionsToAdd.map((permissionId) => ({
@@ -410,13 +414,69 @@ async function main() {
     }
   }
 
+  // Seed super admin user
+  console.log('\n👑 Creating super admin user...');
+  const superAdminPhone = '9999999999';
+  const superAdminEmail = 'admin@ril.com';
+  if (superAdminRoleId) {
+    // Check if user already exists
+    let superAdminUser = await prisma.user.findUnique({
+      where: { phoneNumber: superAdminPhone },
+    });
+
+    if (!superAdminUser) {
+      // Create super admin user
+      superAdminUser = await prisma.user.create({
+        data: {
+          phoneNumber: superAdminPhone,
+          email: superAdminEmail,
+          firstName: 'Super',
+          lastName: 'Admin',
+          status: 'active',
+          phoneVerifiedAt: new Date(), // Mark phone as verified for seed user
+        },
+      });
+      console.log(`  ✅ Super admin user created (phone: ${superAdminPhone})`);
+    } else {
+      console.log(`  ⏭️  Super admin user already exists (phone: ${superAdminPhone})`);
+    }
+
+    // Check if super admin role is already assigned
+    const existingSuperAdminRole = await prisma.userRole.findFirst({
+      where: {
+        userId: superAdminUser.id,
+        roleId: superAdminRoleId,
+        tenantId: null, // Global role
+        status: 'active',
+      },
+    });
+
+    if (!existingSuperAdminRole) {
+      // Assign super admin role
+      await prisma.userRole.create({
+        data: {
+          userId: superAdminUser.id,
+          roleId: superAdminRoleId,
+          tenantId: null, // Global role, no tenant
+          status: 'active',
+        },
+      });
+      console.log(`  ✅ Super admin role assigned`);
+    } else {
+      console.log(`  ⏭️  Super admin role already assigned`);
+    }
+  } else {
+    console.log(`  ⚠️  Super admin role not found, skipping user creation`);
+  }
+
   console.log('\n🎉 Seeding completed!');
   console.log(`\n📊 Summary:`);
   console.log(`   - ${defaultConfigs.length} configurations`);
   console.log(`   - ${defaultPermissions.length} permissions`);
   console.log(`   - ${defaultRoles.length} roles`);
   console.log(`   - PolicyMeta initialized`);
-  console.log('\n💡 Note: Super admin user must be created manually or via registration');
+  console.log(`   - Super admin user (phone: ${superAdminPhone})`);
+  console.log('\n💡 You can login with phone number: 9999999999');
 }
 
 main()

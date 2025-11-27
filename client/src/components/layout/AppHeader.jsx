@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -22,16 +22,19 @@ import {
 } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
 import { useTenantContext } from '../../hooks/useTenantContext';
-import { usePermissions } from '../../hooks/usePermissions';
+import { useGlobalAdminContext } from '../../hooks/useGlobalAdminContext';
 
 export default function AppHeader({ title, showContext = true }) {
   const navigate = useNavigate();
-  const { logout, user, roles } = useAuthStore();
-  const { getContextName, clearTenant, isSuperAdmin, isInGlobalContext } = useTenantContext();
-  const { isSuperAdmin: hasSuperAdminRole } = usePermissions();
+  const location = useLocation();
+  const { logout, user, roles, isSuperAdmin } = useAuthStore();
+  const { getContextName, clearTenant, isInGlobalContext } = useTenantContext();
+  const { selectGlobalAdminContext } = useGlobalAdminContext();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
+  // Check if we're on tenant selection page
+  const isTenantSelectionPage = location.pathname === '/tenant-selection';
   const handleAvatarClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -56,9 +59,24 @@ export default function AppHeader({ title, showContext = true }) {
     navigate('/tenant-selection');
   };
 
-  const handleAdministration = () => {
+  const handleAdministration = async () => {
     handleMenuClose();
-    navigate('/admin/tenants');
+
+    try {
+      await selectGlobalAdminContext({
+        navigateTo: '/admin/tenants',
+        skipIfAlreadyGlobal: !isTenantSelectionPage, // Skip if already global and not on tenant selection page
+        onError: (err, errorMessage) => {
+          console.error('Failed to select global admin context:', err);
+          // Still try to navigate - might work if permissions are cached
+          navigate('/admin/tenants');
+        },
+      });
+    } catch (err) {
+      console.error('Error in handleAdministration:', err);
+      // Still try to navigate - might work if permissions are cached
+      navigate('/admin/tenants');
+    }
   };
 
   const handleLogout = async () => {
@@ -267,70 +285,74 @@ export default function AppHeader({ title, showContext = true }) {
             </Box>
 
             {/* Menu Items */}
-            <MenuItem
-              onClick={handleProfileClick}
-              sx={{
-                py: 1.5,
-                px: 2,
-                '&:hover': {
-                  backgroundColor: '#F0F0F0',
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <Person fontSize="small" sx={{ color: '#6C757D' }} />
-              </ListItemIcon>
-              <ListItemText
-                primary="Profile"
-                primaryTypographyProps={{
-                  fontSize: '0.875rem',
-                  color: '#343A40',
-                }}
-              />
-            </MenuItem>
-            <MenuItem
-              onClick={handleSettingsClick}
-              sx={{
-                py: 1.5,
-                px: 2,
-                '&:hover': {
-                  backgroundColor: '#F0F0F0',
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <SettingsIcon fontSize="small" sx={{ color: '#6C757D' }} />
-              </ListItemIcon>
-              <ListItemText
-                primary="Settings"
-                primaryTypographyProps={{
-                  fontSize: '0.875rem',
-                  color: '#343A40',
-                }}
-              />
-            </MenuItem>
-            <MenuItem
-              onClick={handleSwitchTenant}
-              sx={{
-                py: 1.5,
-                px: 2,
-                '&:hover': {
-                  backgroundColor: '#F0F0F0',
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <Groups fontSize="small" sx={{ color: '#6C757D' }} />
-              </ListItemIcon>
-              <ListItemText
-                primary="Switch Tenant"
-                primaryTypographyProps={{
-                  fontSize: '0.875rem',
-                  color: '#343A40',
-                }}
-              />
-            </MenuItem>
-            {hasSuperAdminRole && !isInGlobalContext && (
+            {isTenantSelectionPage ? null : (
+              <div>
+                <MenuItem
+                  onClick={handleProfileClick}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    '&:hover': {
+                      backgroundColor: '#F0F0F0',
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Person fontSize="small" sx={{ color: '#6C757D' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Profile"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: '#343A40',
+                    }}
+                  />
+                </MenuItem>
+                <MenuItem
+                  onClick={handleSettingsClick}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    '&:hover': {
+                      backgroundColor: '#F0F0F0',
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <SettingsIcon fontSize="small" sx={{ color: '#6C757D' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Settings"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: '#343A40',
+                    }}
+                  />
+                </MenuItem>
+                <MenuItem
+                  onClick={handleSwitchTenant}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    '&:hover': {
+                      backgroundColor: '#F0F0F0',
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Groups fontSize="small" sx={{ color: '#6C757D' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Switch Tenant"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: '#343A40',
+                    }}
+                  />
+                </MenuItem>
+              </div>
+            )}
+            {isSuperAdmin && (isTenantSelectionPage || !isInGlobalContext) && (
               <MenuItem
                 onClick={handleAdministration}
                 sx={{
