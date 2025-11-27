@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authService } from '../services/authService';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import {
   loginRequestSchema,
   loginVerifySchema,
@@ -20,50 +21,26 @@ router.post('/login/request', async (req: Request, res: Response) => {
 
     await authService.requestOTP(contact, req.ip, req.headers['user-agent']);
 
-    // Always return 204 to prevent user enumeration
-    return res.status(204).send();
+    // Return 204 to prevent user enumeration
+    res.status(204).send();
+    return;
   } catch (error: any) {
-    const errorMessage = error?.message || '';
-
-    // Check if it's a rate limit error
-    const isRateLimitError =
-      errorMessage.includes('Rate limit exceeded') ||
-      errorMessage.includes('Please wait') ||
-      errorMessage.includes('Too many requests');
-
-    // Check if it's a user not found error
-    const isUserNotFoundError = errorMessage.includes('User not found');
-
-    // Check if it's a verification error
-    const isVerificationError =
-      errorMessage.includes('is not verified') ||
-      errorMessage.includes('Email is not verified') ||
-      errorMessage.includes('Phone number is not verified');
-
-    if (isRateLimitError) {
-      // Return rate limit error to frontend
-      console.error('Login request rate limit error:', error);
+    // Handle specific errors that should be returned to frontend
+    if (error.message?.includes('Rate limit')) {
       return res.status(429).json({
-        success: false,
-        error: errorMessage,
+        error: error.message,
       });
     }
 
-    if (isUserNotFoundError) {
-      // Return user not found error to frontend
-      console.error('Login request user not found error:', error);
-      return res.status(404).json({
-        success: false,
-        error: errorMessage,
-      });
-    }
-
-    if (isVerificationError) {
-      // Return verification error to frontend
-      console.error('Login request verification error:', error);
+    if (error.message?.includes('not verified')) {
       return res.status(403).json({
-        success: false,
-        error: errorMessage,
+        error: error.message,
+      });
+    }
+
+    if (error.message?.includes('not found') || error.message?.includes('register first')) {
+      return res.status(404).json({
+        error: error.message,
       });
     }
 
@@ -81,6 +58,8 @@ router.post('/login/request', async (req: Request, res: Response) => {
 /**
  * POST /api/auth/login/verify
  * Verify OTP for login
+ * After verification, generates a short-lived session token (no tenantId yet)
+ * User must select tenant before getting full access token
  */
 router.post('/login/verify', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -88,7 +67,19 @@ router.post('/login/verify', async (req: Request, res: Response, next: NextFunct
 
     const user = await authService.verifyOTP(contact, otp);
 
-    // Create session
+    // Get policy version
+    const { policyService } = await import('../services/policyService');
+    const policyVer = await policyService.getPolicyVersion();
+
+    // Generate short-lived session token (no tenantId yet)
+    const { tokenService } = await import('../services/tokenService');
+    const sessionToken = tokenService.generateAccessToken({
+      userId: user.userId,
+      policyVer,
+      // tenantId is not set yet - will be set after tenant selection
+    });
+
+    // Also create session for backward compatibility
     (req.session as any).userId = user.userId;
     (req.session as any).email = user.email;
     (req.session as any).phoneNumber = user.phoneNumber;
@@ -97,6 +88,8 @@ router.post('/login/verify', async (req: Request, res: Response, next: NextFunct
 
     res.json({
       success: true,
+      requiresTenantSelection: true, // Indicates user needs to select tenant
+      sessionToken, // Short-lived token for tenant selection
       user: {
         id: user.userId,
         email: user.email,
@@ -155,6 +148,8 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
 /**
  * POST /api/auth/register/verify
  * Verify OTP for registration
+ * After verification, generates a short-lived session token (no tenantId yet)
+ * User must select tenant before getting full access token
  */
 router.post('/register/verify', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -162,7 +157,19 @@ router.post('/register/verify', async (req: Request, res: Response, next: NextFu
 
     const user = await authService.verifyRegistrationOTP(userId, contact, otp);
 
-    // Create session
+    // Get policy version
+    const { policyService } = await import('../services/policyService');
+    const policyVer = await policyService.getPolicyVersion();
+
+    // Generate short-lived session token (no tenantId yet)
+    const { tokenService } = await import('../services/tokenService');
+    const sessionToken = tokenService.generateAccessToken({
+      userId: user.userId,
+      policyVer,
+      // tenantId is not set yet - will be set after tenant selection
+    });
+
+    // Also create session for backward compatibility
     (req.session as any).userId = user.userId;
     (req.session as any).email = user.email;
     (req.session as any).phoneNumber = user.phoneNumber;
@@ -171,6 +178,8 @@ router.post('/register/verify', async (req: Request, res: Response, next: NextFu
 
     res.json({
       success: true,
+      requiresTenantSelection: true, // Indicates user needs to select tenant
+      sessionToken, // Short-lived token for tenant selection
       user: {
         id: user.userId,
         email: user.email,
@@ -193,25 +202,99 @@ router.post('/register/verify', async (req: Request, res: Response, next: NextFu
 
 /**
  * POST /api/auth/logout
- * Logout user
+ * Logout user - revokes refresh tokens and clears session
  */
-router.post('/logout', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    req.session.destroy((err) => {
-      if (err) {
-        return next(err);
+router.post(
+  '/logout',
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.userId || req.session?.userId;
+      const tenantId = req.tenantId || req.session?.tenantId;
+
+      // Revoke refresh tokens for this user (and tenant if specified)
+      if (userId) {
+        const { tokenService } = await import('../services/tokenService');
+        await tokenService.revokeAllRefreshTokens(userId, tenantId);
+
+        // Audit log
+        const { auditService } = await import('../services/auditService');
+        await auditService.logAction({
+          ...(userId && { actorUserId: userId }),
+          ...(tenantId && { tenantId }),
+          action: 'auth.logout',
+          resource: `user:${userId}`,
+          ...(req.ip && { ip: req.ip }),
+          ...(req.headers['user-agent'] && { userAgent: req.headers['user-agent'] }),
+        });
       }
-      res.clearCookie('sid');
-      res.json({ success: true, message: 'Logged out successfully' });
+
+      // Destroy session
+      req.session.destroy((err: any) => {
+        if (err) {
+          return next(err);
+        }
+        res.clearCookie('sid');
+        res.json({ success: true, message: 'Logged out successfully' });
+      });
+    } catch (error: any) {
+      // Convert error to proper format
+      if (error instanceof ZodError) {
+        return next(error);
+      }
+      // Create error object with status code
+      const err: any = new Error(error.message || 'An error occurred');
+      err.statusCode = error.statusCode || 400;
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/auth/refresh
+ * Refresh access token using refresh token
+ */
+router.post('/refresh', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const refreshToken = req.body.refreshToken || req.headers.authorization?.replace('Bearer ', '');
+
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token required' });
+    }
+
+    const { tokenService } = await import('../services/tokenService');
+    const { policyService } = await import('../services/policyService');
+
+    // Verify refresh token
+    const payload = await tokenService.verifyRefreshToken(refreshToken);
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+
+    // Get current policy version
+    const currentPolicyVer = await policyService.getPolicyVersion();
+
+    // Generate new access token
+    const tokenPayload: any = {
+      userId: payload.userId,
+      policyVer: currentPolicyVer,
+    };
+    if (payload.tenantId) {
+      tokenPayload.tenantId = payload.tenantId;
+    }
+    const accessToken = tokenService.generateAccessToken(tokenPayload);
+
+    res.json({
+      success: true,
+      accessToken,
+      expiresIn: 15 * 60, // 15 minutes
     });
   } catch (error: any) {
-    // Convert error to proper format
     if (error instanceof ZodError) {
       return next(error);
     }
-    // Create error object with status code
     const err: any = new Error(error.message || 'An error occurred');
-    err.statusCode = error.statusCode || 400;
+    err.statusCode = error.statusCode || 401;
     next(err);
   }
 });

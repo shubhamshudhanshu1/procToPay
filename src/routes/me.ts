@@ -3,6 +3,10 @@ import { z, ZodError } from 'zod';
 import { prisma } from '../db/prisma';
 import { redis } from '../lib/redis';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import { userRoleService } from '../services/userRoleService';
+import { permissionCheckService } from '../services/permissionCheckService';
+import { tenantService } from '../services/tenantService';
+import { policyService } from '../services/policyService';
 
 const router: Router = Router();
 
@@ -20,8 +24,18 @@ const updateProfileSchema = z.object({
 // GET /me
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.userId || req.session?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    // Get tenantId from token or session
+    const tenantId = req.tenantId || req.session?.tenantId;
+
+    // Get user profile
     const user = await prisma.user.findUnique({
-      where: { id: req.session.userId },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
@@ -32,6 +46,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
         phoneVerifiedAt: true,
         createdAt: true,
         updatedAt: true,
+        status: true,
       },
     });
 
@@ -40,7 +55,60 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
       return;
     }
 
-    res.json(user);
+    // Check if user is super admin
+    const isSuperAdmin = await userRoleService.isSuperAdmin(userId);
+
+    // Get current tenant if tenantId is set
+    let currentTenant = null;
+    if (tenantId) {
+      currentTenant = await tenantService.getTenantById(tenantId);
+    }
+
+    // Get user's roles
+    const userRoles = await userRoleService.getUserRoles(userId, tenantId || undefined);
+    const roles = userRoles.map((ur) => ({
+      id: ur.role.id,
+      slug: ur.role.slug,
+      name: ur.role.name,
+      scope: ur.role.scope,
+    }));
+
+    // Get user's effective permissions
+    const effectivePermissions = await permissionCheckService.getUserEffectivePermissions(
+      userId,
+      tenantId || null
+    );
+
+    // Extract permission slugs
+    const permissions = effectivePermissions.map((p) => p.permission_slug);
+
+    // Get policy version
+    const policyVer = await policyService.getPolicyVersion();
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      emailVerifiedAt: user.emailVerifiedAt,
+      phoneVerifiedAt: user.phoneVerifiedAt,
+      status: user.status,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      currentTenant: currentTenant
+        ? {
+            id: currentTenant.id,
+            name: currentTenant.name,
+            code: currentTenant.code,
+            status: currentTenant.status,
+          }
+        : null,
+      roles,
+      permissions,
+      isSuperAdmin,
+      policyVer,
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Internal server error' });

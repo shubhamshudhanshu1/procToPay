@@ -1,18 +1,22 @@
-// Services exports
-export { configService } from './configService';
-export type { OTPConfig, RateLimitConfig } from './configService';
-
-import { contactService } from './contactService';
-export { contactService };
-
-export { otpService } from './otpService';
-
-export { rateLimiterService } from './rateLimiterService';
-
-export { emailService } from './emailService';
-
-export { smsService } from './smsService';
+/**
+ * Services Index
+ *
+ * Central export for all services.
+ */
 
 export { authService } from './authService';
+export { configService } from './configService';
+export { contactService } from './contactService';
+export { emailService } from './emailService';
+export { otpService } from './otpService';
+export { rateLimiterService } from './rateLimiterService';
+export { smsService } from './smsService';
 
-export default contactService;
+// RBAC Services
+export { tenantService } from './tenantService';
+export { roleService } from './roleService';
+export { permissionService } from './permissionService';
+export { userRoleService } from './userRoleService';
+export { permissionCheckService } from './permissionCheckService';
+export { policyService } from './policyService';
+export { auditService } from './auditService';
