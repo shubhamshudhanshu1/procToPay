@@ -61,7 +61,7 @@ export const usePermissions = () => {
    */
   const hasGlobalRole = (roleSlug) => {
     if (!roles || roles.length === 0) return false;
-    return roles.some((role) => role.slug === roleSlug && role.scope === 'global');
+    return roles.some((role) => role.slug === roleSlug && (role.tenantId === null || role.tenantId === undefined));
   };
 
   /**
@@ -80,7 +80,7 @@ export const usePermissions = () => {
    */
   const hasTenantRole = (roleSlug) => {
     if (!roles || roles.length === 0) return false;
-    return roles.some((role) => role.slug === roleSlug && role.scope === 'tenant');
+    return roles.some((role) => role.slug === roleSlug && role.tenantId !== null && role.tenantId !== undefined);
   };
 
   return {

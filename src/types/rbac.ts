@@ -4,15 +4,13 @@
  * Type definitions for roles, permissions, and access control.
  */
 
-export type RoleScope = 'global' | 'tenant';
-
 export type UserRoleStatus = 'active' | 'pending' | 'revoked';
 
 export interface Role {
   id: string;
   slug: string;
   name: string;
-  scope: RoleScope;
+  tenantId?: string | null; // null for global roles, tenant UUID for tenant-specific roles
   description?: string;
   createdBy?: string;
   createdAt: Date;
@@ -61,7 +59,7 @@ export interface EffectivePermission {
 export interface CreateRoleInput {
   slug: string;
   name: string;
-  scope: RoleScope;
+  tenantId?: string | null; // null for global roles, tenant UUID for tenant-specific roles
   description?: string;
   createdBy?: string;
   permissionIds?: string[]; // Permissions to assign to this role

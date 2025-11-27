@@ -1,5 +1,5 @@
 import { prisma } from '../db/prisma';
-import { CreateRoleInput, UpdateRoleInput, RoleScope } from '../types/rbac';
+import { CreateRoleInput, UpdateRoleInput } from '../types/rbac';
 import { auditService } from './auditService';
 import { policyService } from './policyService';
 
@@ -7,18 +7,24 @@ import { policyService } from './policyService';
  * Role Service
  *
  * Handles all role-related operations including CRUD, permission assignment, and validation.
- * Manages role scope (global vs tenant) and enforces business rules.
+ * Roles are either global (tenantId=null) or tenant-specific (tenantId set).
  */
 
 class RoleService {
   /**
    * Get all roles
    *
-   * @param scope Optional filter by scope ('global' | 'tenant')
+   * @param tenantId Optional filter by tenant (null for global roles, UUID for tenant roles, undefined for all)
    * @returns List of roles
    */
-  async getAllRoles(scope?: RoleScope) {
-    const where = scope ? { scope } : {};
+  async getAllRoles(tenantId?: string | null) {
+    const where: any = {};
+
+    // Filter by tenantId
+    if (tenantId !== undefined) {
+      where.tenantId = tenantId;
+    }
+
     return prisma.role.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -39,7 +45,7 @@ class RoleService {
    * @returns Role with permissions or null
    */
   async getRoleById(id: string) {
-    return prisma.role.findUnique({
+    const role = await prisma.role.findUnique({
       where: { id },
       include: {
         rolePermissions: {
@@ -49,17 +55,26 @@ class RoleService {
         },
       },
     });
+
+    return role;
   }
 
   /**
    * Get role by slug
    *
    * @param slug Role slug (e.g., 'super_admin', 'tenant_admin')
+   * @param tenantId Optional tenant ID (null for global roles, UUID for tenant-specific roles)
    * @returns Role with permissions or null
    */
-  async getRoleBySlug(slug: string) {
-    return prisma.role.findUnique({
-      where: { slug },
+  async getRoleBySlug(slug: string, tenantId?: string | null) {
+    // For composite unique key with nullable tenantId, use findFirst instead of findUnique
+    // Prisma's findUnique doesn't handle nullable fields in composite keys well
+    const roleTenantId = tenantId === undefined ? null : tenantId;
+    const role = await prisma.role.findFirst({
+      where: {
+        slug,
+        tenantId: roleTenantId,
+      },
       include: {
         rolePermissions: {
           include: {
@@ -68,6 +83,8 @@ class RoleService {
         },
       },
     });
+
+    return role;
   }
 
   /**
@@ -110,15 +127,16 @@ class RoleService {
       throw new Error('Role name is required');
     }
 
-    // Validate scope
-    if (data.scope !== 'global' && data.scope !== 'tenant') {
-      throw new Error('Role scope must be either "global" or "tenant"');
-    }
+    // tenantId=null for global roles, tenantId=UUID for tenant-specific roles
+    const tenantId = data.tenantId ?? null;
+    // tenantId = null → global role
+    // tenantId != null → tenant role
 
-    // Check if slug already exists
-    const existingRole = await this.getRoleBySlug(data.slug.trim());
+    // Check if slug already exists for this tenant (or globally if tenantId is null)
+    const existingRole = await this.getRoleBySlug(data.slug.trim(), tenantId);
     if (existingRole) {
-      throw new Error(`Role with slug "${data.slug}" already exists`);
+      const context = tenantId ? `for tenant ${tenantId}` : 'globally';
+      throw new Error(`Role with slug "${data.slug}" already exists ${context}`);
     }
 
     // Create role
@@ -126,7 +144,7 @@ class RoleService {
       data: {
         slug: data.slug.trim(),
         name: data.name.trim(),
-        scope: data.scope,
+        tenantId,
         description: data.description?.trim() || null,
         createdBy: actorUserId || null,
       },
@@ -188,13 +206,13 @@ class RoleService {
       }
     }
 
-    // Build update data (slug and scope cannot be changed)
+    // Build update data (slug and tenantId cannot be changed)
     const updateData: any = {};
     if (data.name !== undefined) updateData.name = data.name.trim();
     if (data.description !== undefined) updateData.description = data.description?.trim() || null;
 
     // Update role
-    const updatedRole = await prisma.role.update({
+    await prisma.role.update({
       where: { id },
       data: updateData,
     });
@@ -268,12 +286,7 @@ class RoleService {
    * @param ipAddress IP address (for audit)
    * @param userAgent User agent (for audit)
    */
-  async deleteRole(
-    id: string,
-    actorUserId?: string,
-    ipAddress?: string,
-    userAgent?: string
-  ) {
+  async deleteRole(id: string, actorUserId?: string, ipAddress?: string, userAgent?: string) {
     // Check if role is in use
     const userRoles = await prisma.userRole.findFirst({
       where: { roleId: id },
@@ -312,4 +325,3 @@ class RoleService {
 }
 
 export const roleService = new RoleService();
-

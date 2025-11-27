@@ -128,7 +128,7 @@ export default function UserManagement() {
     });
   };
 
-  const tenantRoles = (rolesData?.roles || []).filter((role) => role.scope === 'tenant');
+  const tenantRoles = (rolesData?.roles || []).filter((role) => role.tenantId !== null && role.tenantId !== undefined);
   const users = usersData?.users || [];
 
   if (usersLoading) {
@@ -300,7 +300,7 @@ export default function UserManagement() {
                 .filter((role) => !userRolesInTenant.some((ur) => ur.id === role.id))
                 .map((role) => (
                   <MenuItem key={role.id} value={role.id}>
-                    {role.name} ({role.scope})
+                    {role.name} ({role.tenantId === null || role.tenantId === undefined ? 'Global' : 'Tenant'})
                   </MenuItem>
                 ))}
             </TextField>

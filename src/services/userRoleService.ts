@@ -1,5 +1,5 @@
 import { prisma } from '../db/prisma';
-import { AssignRoleInput, UserRoleStatus } from '../types/rbac';
+import { AssignRoleInput } from '../types/rbac';
 import { auditService } from './auditService';
 import { roleService } from './roleService';
 import { policyService } from './policyService';
@@ -8,7 +8,7 @@ import { policyService } from './policyService';
  * UserRole Service
  *
  * Handles user-role-tenant assignments and queries.
- * Enforces role scope rules (global roles can't have tenantId, tenant roles must have tenantId).
+ * Global roles have tenantId=null, tenant-specific roles have tenantId set.
  */
 
 class UserRoleService {
@@ -101,18 +101,19 @@ class UserRoleService {
     ipAddress?: string,
     userAgent?: string
   ) {
-    // Get role to check scope
+    // Get role to validate tenantId
     const role = await roleService.getRoleById(data.roleId);
     if (!role) {
       throw new Error('Role not found');
     }
 
-    // Validate role scope matches tenantId
-    if (role.scope === 'global' && data.tenantId) {
+    // Validate role tenantId matches assignment context
+    const isGlobalRole = role.tenantId === null;
+    if (isGlobalRole && data.tenantId) {
       throw new Error('Global roles cannot be assigned to a tenant');
     }
 
-    if (role.scope === 'tenant' && !data.tenantId) {
+    if (!isGlobalRole && !data.tenantId) {
       throw new Error('Tenant roles must be assigned to a tenant');
     }
 
@@ -228,14 +229,7 @@ class UserRoleService {
 
     // Audit log
     if (actorUserId) {
-      await auditService.logRoleRevoke(
-        userId,
-        roleId,
-        tenantId,
-        actorUserId,
-        ipAddress,
-        userAgent
-      );
+      await auditService.logRoleRevoke(userId, roleId, tenantId, actorUserId, ipAddress, userAgent);
     }
 
     return revoked;
@@ -250,8 +244,12 @@ class UserRoleService {
    * @returns true if user has the role
    */
   async checkUserHasRole(userId: string, roleSlug: string, tenantId?: string): Promise<boolean> {
-    // Get role by slug
-    const role = await roleService.getRoleBySlug(roleSlug);
+    // Determine which role to check based on tenantId parameter
+    // If tenantId is provided, check tenant-scoped role; otherwise check global role
+    const roleTenantId = tenantId !== undefined ? tenantId : null;
+
+    // Get role by slug and tenantId
+    const role = await roleService.getRoleBySlug(roleSlug, roleTenantId);
     if (!role) {
       return false;
     }
@@ -263,9 +261,10 @@ class UserRoleService {
       status: 'active',
     };
 
-    // For global roles, tenantId must be null
-    // For tenant roles, tenantId must match
-    if (role.scope === 'global') {
+    // For global roles (tenantId === null), tenantId must be null in UserRole
+    // For tenant roles (tenantId !== null), tenantId must match
+    const isGlobalRole = role.tenantId === null;
+    if (isGlobalRole) {
       where.tenantId = null;
     } else {
       if (!tenantId) {
@@ -283,7 +282,7 @@ class UserRoleService {
    *
    * @deprecated Use hasGlobalRole() or permission checks instead for better flexibility
    * @param userId User UUID
-   * @returns true if user has super_admin role (global scope)
+   * @returns true if user has super_admin role (global role)
    */
   async isSuperAdmin(userId: string): Promise<boolean> {
     return this.checkUserHasRole(userId, 'super_admin');
@@ -294,10 +293,10 @@ class UserRoleService {
    *
    * @param userId User UUID
    * @param roleSlug Role slug (e.g., 'super_admin', 'system_admin')
-   * @returns true if user has the role (global scope)
+   * @returns true if user has the role (global role)
    */
   async hasGlobalRole(userId: string, roleSlug: string): Promise<boolean> {
-    return this.checkUserHasRole(userId, roleSlug, null);
+    return this.checkUserHasRole(userId, roleSlug, undefined);
   }
 
   /**
@@ -305,7 +304,7 @@ class UserRoleService {
    *
    * @param userId User UUID
    * @param roleSlugs Array of role slugs to check
-   * @returns true if user has any of the roles (global scope)
+   * @returns true if user has any of the roles (global roles)
    */
   async hasAnyGlobalRole(userId: string, roleSlugs: string[]): Promise<boolean> {
     for (const roleSlug of roleSlugs) {
@@ -330,4 +329,3 @@ class UserRoleService {
 }
 
 export const userRoleService = new UserRoleService();
-

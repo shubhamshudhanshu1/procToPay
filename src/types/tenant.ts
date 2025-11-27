@@ -30,11 +30,11 @@ export interface UpdateTenantInput {
 export interface TenantWithRoles extends Tenant {
   userRoles?: Array<{
     role: {
+      id: string;
       slug: string;
       name: string;
-      scope: 'global' | 'tenant';
+      tenantId: string | null; // null for global roles, UUID for tenant-specific roles
     };
     status: string;
   }>;
 }
-

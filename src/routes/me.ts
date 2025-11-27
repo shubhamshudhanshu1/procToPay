@@ -84,7 +84,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
       id: ur.role.id,
       slug: ur.role.slug,
       name: ur.role.name,
-      scope: ur.role.scope,
+      tenantId: ur.role.tenantId,
     }));
 
     // Get user's effective permissions

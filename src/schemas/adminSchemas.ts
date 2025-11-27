@@ -7,10 +7,11 @@ import { z } from 'zod';
  */
 
 // Role schemas
+// Note: tenantId determines role type (null = global, set = tenant-specific)
 export const createRoleSchema = z.object({
   slug: z.string().min(1).max(100),
   name: z.string().min(1).max(200),
-  scope: z.enum(['global', 'tenant']),
+  tenantId: z.string().uuid().nullable().optional(), // null for global roles, UUID for tenant-specific roles
   description: z.string().max(1000).optional(),
   permissionIds: z.array(z.string().uuid()).optional(),
 });

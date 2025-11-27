@@ -39,7 +39,7 @@ export default function Roles() {
   const [formData, setFormData] = useState({
     slug: '',
     name: '',
-    scope: 'tenant',
+    tenantId: null, // null for global roles, tenant ID for tenant-specific roles
     description: '',
     permissionIds: [],
   });
@@ -55,6 +55,12 @@ export default function Roles() {
     queryKey: ['permissions'],
     queryFn: () => adminService.getPermissions(),
     enabled: openPermissionsDialog || openDialog,
+  });
+
+  const { data: tenantsData } = useQuery({
+    queryKey: ['tenants'],
+    queryFn: () => adminService.getTenants('active'),
+    enabled: openDialog,
   });
 
   const createMutation = useMutation({
@@ -87,7 +93,7 @@ export default function Roles() {
     setFormData({
       slug: '',
       name: '',
-      scope: 'tenant',
+      tenantId: null,
       description: '',
       permissionIds: [],
     });
@@ -104,7 +110,7 @@ export default function Roles() {
     setFormData({
       slug: role.slug,
       name: role.name,
-      scope: role.scope,
+      tenantId: role.tenantId || null,
       description: role.description || '',
       permissionIds: role.rolePermissions?.map((rp) => rp.permissionId) || [],
     });
@@ -123,7 +129,7 @@ export default function Roles() {
     const data = {
       slug: formData.slug,
       name: formData.name,
-      scope: formData.scope,
+      tenantId: formData.tenantId,
       description: formData.description || undefined,
       permissionIds: formData.permissionIds,
     };
@@ -210,8 +216,8 @@ export default function Roles() {
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={role.scope}
-                    color={role.scope === 'global' ? 'primary' : 'default'}
+                    label={role.tenantId === null || role.tenantId === undefined ? 'Global' : 'Tenant'}
+                    color={(role.tenantId === null || role.tenantId === undefined) ? 'primary' : 'default'}
                     size="small"
                   />
                 </TableCell>
@@ -281,17 +287,24 @@ export default function Roles() {
             />
             <TextField
               select
-              label="Scope"
-              value={formData.scope}
+              label="Role Type"
+              value={formData.tenantId === null || formData.tenantId === undefined ? 'global' : formData.tenantId}
               onChange={(e) =>
-                setFormData({ ...formData, scope: e.target.value })
+                setFormData({ 
+                  ...formData, 
+                  tenantId: e.target.value === 'global' ? null : e.target.value 
+                })
               }
               required
               fullWidth
               disabled={!!editingRole}
             >
-              <MenuItem value="global">Global</MenuItem>
-              <MenuItem value="tenant">Tenant</MenuItem>
+              <MenuItem value="global">Global (System-wide)</MenuItem>
+              {(tenantsData?.tenants || []).map((tenant) => (
+                <MenuItem key={tenant.id} value={tenant.id}>
+                  Tenant: {tenant.name}
+                </MenuItem>
+              ))}
             </TextField>
             <TextField
               label="Description"

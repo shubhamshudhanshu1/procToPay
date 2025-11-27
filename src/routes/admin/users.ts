@@ -143,7 +143,7 @@ router.get(
               id: true,
               slug: true,
               name: true,
-              scope: true,
+              tenantId: true,
             },
           },
         },
@@ -163,7 +163,7 @@ router.get(
           id: ur.role.id,
           slug: ur.role.slug,
           name: ur.role.name,
-          scope: ur.role.scope,
+          tenantId: ur.role.tenantId,
           status: ur.status,
           assignedAt: ur.createdAt,
         });
@@ -199,7 +199,8 @@ router.post(
         return res.status(404).json({ error: 'Role not found' });
       }
 
-      if (role.scope !== 'tenant') {
+      // Check if role is tenant-scoped (tenantId != null)
+      if (role.tenantId === null) {
         return res
           .status(400)
           .json({ error: 'Only tenant-scoped roles can be assigned to tenants' });
@@ -279,7 +280,7 @@ router.get(
           id: ur.role.id,
           slug: ur.role.slug,
           name: ur.role.name,
-          scope: ur.role.scope,
+          tenantId: ur.role.tenantId,
           status: ur.status,
           assignedAt: ur.createdAt,
         })),

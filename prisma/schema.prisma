@@ -83,9 +83,10 @@ model Tenant {
   updatedAt DateTime @updatedAt @db.Timestamptz
 
   // Relations
-  userRoles     UserRole[]
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
+  roles          Role[]          // Tenant-specific roles
+  userRoles      UserRole[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
 
   @@index([name])
   @@index([code])
@@ -95,20 +96,22 @@ model Tenant {
 
 model Role {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug        String   @unique // 'super_admin', 'tenant_admin', etc.
+  slug        String // Unique per tenant (composite unique with tenantId)
   name        String
-  scope       String // 'global' | 'tenant' (enforced by DB trigger)
+  tenantId    String?  @db.Uuid // null for global roles, set for tenant-specific roles (scope derived from this)
   description String?
   createdBy   String?  @db.Uuid
   createdAt   DateTime @default(now()) @db.Timestamptz
   updatedAt   DateTime @updatedAt @db.Timestamptz
 
   // Relations
+  tenant          Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   rolePermissions RolePermission[]
   userRoles       UserRole[]
 
+  @@unique([slug, tenantId]) // Composite unique: slug unique per tenant (null tenantId = global)
   @@index([slug])
-  @@index([scope])
+  @@index([tenantId])
   @@map("roles")
 }
 
