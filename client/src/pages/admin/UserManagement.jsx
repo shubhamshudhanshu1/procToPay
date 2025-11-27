@@ -5,8 +5,6 @@ import {
   Typography,
   TextField,
   Button,
-  Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -23,9 +21,8 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
-  Grid,
 } from '@mui/material';
-import { Search, Add, Delete } from '@mui/icons-material';
+import { Search, Add } from '@mui/icons-material';
 import { adminService } from '../../services/adminService';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useTenantContext } from '../../hooks/useTenantContext';
@@ -35,12 +32,11 @@ export default function UserManagement() {
   const { tenantId, isInTenantContext } = useTenantContext();
   const queryClient = useQueryClient();
   const [searchEmail, setSearchEmail] = useState('');
-  const [searchResult, setSearchResult] = useState(null);
+  const [searchFilter, setSearchFilter] = useState(''); // Actual filter applied
   const [openRoleDialog, setOpenRoleDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState(null);
+  const [userRolesInTenant, setUserRolesInTenant] = useState([]);
 
   const { data: rolesData } = useQuery({
     queryKey: ['roles'],
@@ -48,25 +44,14 @@ export default function UserManagement() {
     enabled: openRoleDialog,
   });
 
-  const { data: tenantUsersData, isLoading: tenantUsersLoading } = useQuery({
-    queryKey: ['tenantUsers', tenantId],
-    queryFn: () => adminService.getTenantUsers(tenantId),
-    enabled: !!tenantId && isInTenantContext,
-  });
-
-  const searchMutation = useMutation({
-    mutationFn: (email) => adminService.searchUsers(email),
-    onSuccess: (data) => {
-      setSearchResult(data.user);
-      setSearchError(null);
-    },
-    onError: (error) => {
-      setSearchResult(null);
-      setSearchError(error.response?.data?.error || 'User not found');
-    },
-    onSettled: () => {
-      setSearchLoading(false);
-    },
+  // Fetch all users with optional search filter
+  const {
+    data: usersData,
+    isLoading: usersLoading,
+    error: usersError,
+  } = useQuery({
+    queryKey: ['users', searchFilter],
+    queryFn: () => adminService.getUsers({ email: searchFilter || undefined }),
   });
 
   const assignRoleMutation = useMutation({
@@ -75,6 +60,7 @@ export default function UserManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries(['tenantUsers', tenantId]);
       queryClient.invalidateQueries(['userRoles', tenantId]);
+      queryClient.invalidateQueries(['users']); // Refresh users list
       setOpenRoleDialog(false);
       setSelectedUser(null);
       setSelectedRoleId('');
@@ -87,23 +73,39 @@ export default function UserManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries(['tenantUsers', tenantId]);
       queryClient.invalidateQueries(['userRoles', tenantId]);
+      queryClient.invalidateQueries(['users']); // Refresh users list
     },
   });
 
-  const handleSearch = async () => {
-    if (!searchEmail.trim()) {
-      setSearchError('Please enter an email address');
+  const handleSearch = () => {
+    // Apply search filter
+    setSearchFilter(searchEmail.trim());
+  };
+
+  const handleClearSearch = () => {
+    setSearchEmail('');
+    setSearchFilter('');
+  };
+
+  const handleOpenRoleDialog = async (user) => {
+    if (!isInTenantContext || !tenantId) {
+      alert('Please select a tenant context first to assign roles');
       return;
     }
 
-    setSearchLoading(true);
-    setSearchError(null);
-    searchMutation.mutate(searchEmail.trim());
-  };
-
-  const handleOpenRoleDialog = (user) => {
     setSelectedUser(user);
     setOpenRoleDialog(true);
+
+    // Fetch user's existing roles in tenant
+    if (tenantId) {
+      try {
+        const rolesData = await adminService.getUserRoles(tenantId, user.id);
+        setUserRolesInTenant(rolesData?.roles || []);
+      } catch (err) {
+        console.error('Failed to fetch user roles:', err);
+        setUserRolesInTenant([]);
+      }
+    }
   };
 
   const handleAssignRole = () => {
@@ -116,177 +118,134 @@ export default function UserManagement() {
     });
   };
 
-  const handleRevokeRole = (roleId) => {
-    if (!selectedUser || !tenantId) return;
+  const handleRevokeRole = (userId, roleId) => {
+    if (!userId || !tenantId) return;
 
     revokeRoleMutation.mutate({
       tenantId,
-      userId: selectedUser.id,
+      userId,
       roleId,
     });
   };
 
   const tenantRoles = (rolesData?.roles || []).filter((role) => role.scope === 'tenant');
+  const users = usersData?.users || [];
+
+  if (usersLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (usersError) {
+    return (
+      <Alert severity="error">{usersError.response?.data?.error || 'Failed to load users'}</Alert>
+    );
+  }
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
-        User Management
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          User Management
+        </Typography>
 
-      {/* User Search Section */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Search User by Email
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              label="Email Address"
-              value={searchEmail}
-              onChange={(e) => setSearchEmail(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearch();
-                }
-              }}
-              fullWidth
-              type="email"
-            />
-            <Button
-              variant="contained"
-              startIcon={<Search />}
-              onClick={handleSearch}
-              disabled={searchLoading}
-            >
-              Search
+        {/* Search Box */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <TextField
+            label="Search by Email"
+            value={searchEmail}
+            onChange={(e) => setSearchEmail(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleSearch();
+              }
+            }}
+            size="small"
+            type="email"
+            placeholder="Enter email to filter..."
+            sx={{ width: 300 }}
+          />
+          <Button
+            variant="outlined"
+            startIcon={<Search />}
+            onClick={handleSearch}
+            disabled={usersLoading}
+          >
+            Search
+          </Button>
+          {searchFilter && (
+            <Button variant="text" onClick={handleClearSearch} size="small">
+              Clear
             </Button>
-          </Box>
-
-          {searchError && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {searchError}
-            </Alert>
           )}
+        </Box>
+      </Box>
 
-          {searchLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-              <CircularProgress />
-            </Box>
-          )}
-
-          {searchResult && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                User Found
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Name
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Phone</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Created At</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+                    {searchEmail ? 'No users found matching the search' : 'No users found'}
                   </Typography>
-                  <Typography variant="body1">
-                    {searchResult.firstName && searchResult.lastName
-                      ? `${searchResult.firstName} ${searchResult.lastName}`
-                      : searchResult.firstName || searchResult.email || 'N/A'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Email
-                  </Typography>
-                  <Typography variant="body1">{searchResult.email}</Typography>
-                </Grid>
-                {searchResult.existingRoles && searchResult.existingRoles.length > 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Current Roles in Tenant
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {searchResult.existingRoles.map((role) => (
-                        <Chip key={role.id} label={role.name} size="small" />
-                      ))}
-                    </Box>
-                  </Grid>
-                )}
-                <Grid item xs={12}>
-                  {hasPermission('user:edit') && isInTenantContext && (
-                    <Button
-                      variant="contained"
-                      startIcon={<Add />}
-                      onClick={() => handleOpenRoleDialog(searchResult)}
-                    >
-                      Assign Role
-                    </Button>
-                  )}
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tenant Users List */}
-      {isInTenantContext && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Users in Tenant
-            </Typography>
-            {tenantUsersLoading ? (
-              <CircularProgress />
+                </TableCell>
+              </TableRow>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Roles</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(tenantUsersData?.users || []).map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          {user.firstName && user.lastName
-                            ? `${user.firstName} ${user.lastName}`
-                            : user.firstName || user.email || 'N/A'}
-                        </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {user.roles?.map((role) => (
-                              <Chip
-                                key={role.id}
-                                label={role.name}
-                                size="small"
-                                onDelete={
-                                  hasPermission('user:edit')
-                                    ? () => handleRevokeRole(role.id)
-                                    : undefined
-                                }
-                              />
-                            ))}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          {hasPermission('user:edit') && (
-                            <IconButton size="small" onClick={() => handleOpenRoleDialog(user)}>
-                              <Add fontSize="small" />
-                            </IconButton>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    {user.firstName && user.lastName
+                      ? `${user.firstName} ${user.lastName}`
+                      : user.firstName || user.email || 'N/A'}
+                  </TableCell>
+                  <TableCell>{user.email || '-'}</TableCell>
+                  <TableCell>{user.phoneNumber || '-'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={user.status}
+                      color={
+                        user.status === 'active'
+                          ? 'success'
+                          : user.status === 'pending'
+                            ? 'warning'
+                            : 'default'
+                      }
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    {hasPermission('user:edit') && isInTenantContext && tenantId && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenRoleDialog(user)}
+                        title="Assign Role"
+                      >
+                        <Add fontSize="small" />
+                      </IconButton>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
             )}
-          </CardContent>
-        </Card>
-      )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {/* Assign Role Dialog */}
       <Dialog
@@ -299,23 +258,58 @@ export default function UserManagement() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Assign Role to {selectedUser?.firstName || selectedUser?.email}</DialogTitle>
+        <DialogTitle>
+          Assign Role to{' '}
+          {selectedUser?.firstName && selectedUser?.lastName
+            ? `${selectedUser.firstName} ${selectedUser.lastName}`
+            : selectedUser?.firstName || selectedUser?.email}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1 }}>
+            {/* Show existing roles */}
+            {userRolesInTenant.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Current Roles in Tenant:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {userRolesInTenant.map((role) => (
+                    <Chip
+                      key={role.id}
+                      label={role.name}
+                      size="small"
+                      onDelete={() => {
+                        handleRevokeRole(selectedUser.id, role.id);
+                        setUserRolesInTenant(userRolesInTenant.filter((r) => r.id !== role.id));
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
             <TextField
               select
-              label="Select Role"
+              label="Select Role to Assign"
               value={selectedRoleId}
               onChange={(e) => setSelectedRoleId(e.target.value)}
               fullWidth
               sx={{ mt: 2 }}
             >
-              {tenantRoles.map((role) => (
-                <MenuItem key={role.id} value={role.id}>
-                  {role.name} ({role.scope})
-                </MenuItem>
-              ))}
+              {tenantRoles
+                .filter((role) => !userRolesInTenant.some((ur) => ur.id === role.id))
+                .map((role) => (
+                  <MenuItem key={role.id} value={role.id}>
+                    {role.name} ({role.scope})
+                  </MenuItem>
+                ))}
             </TextField>
+            {tenantRoles.filter((role) => !userRolesInTenant.some((ur) => ur.id === role.id))
+              .length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                All available roles are already assigned
+              </Typography>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
