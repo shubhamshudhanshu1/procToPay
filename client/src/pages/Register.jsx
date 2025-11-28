@@ -36,15 +36,16 @@ const Register = () => {
     setLoading(true);
 
     try {
-      await authService.register(data);
+      const result = await authService.register(data);
 
       // Both email and phone are required, so we need to verify both
       const verifyBoth = true;
 
-      // Prepare navigation state
+      // Prepare navigation state with userId from registration response
       const navigateState = {
         email: data.email,
         phoneNumber: data.phoneNumber,
+        userId: result.userId,
         verifyBoth,
       };
 

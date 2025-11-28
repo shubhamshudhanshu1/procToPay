@@ -30,7 +30,7 @@ const defaultConfigs = [
   },
   {
     key: 'otp.hardcoded_enabled',
-    value: 'false',
+    value: 'true',
     type: 'boolean' as const,
     category: 'otp',
     description: 'Enable hardcoded OTP (uses last 4 digits of phone for testing)',
@@ -429,13 +429,42 @@ async function main() {
 
   // Seed super admin user
   console.log('\n👑 Creating super admin user...');
-  const superAdminPhone = '9999999999';
+  // Phone number must be in normalized E.164 format to match auth service normalization
+  // 10-digit number will be normalized to +19999999999 (default country code +1)
+  const superAdminPhone = '+19999999999';
   const superAdminEmail = 'admin@ril.com';
   if (superAdminRoleId) {
-    // Check if user already exists
+    // Check if user already exists (try both formats for migration compatibility)
     let superAdminUser = await prisma.user.findUnique({
       where: { phoneNumber: superAdminPhone },
     });
+
+    // Also check old format for migration (in case user was created with old format)
+    if (!superAdminUser) {
+      const oldFormatUser = await prisma.user.findUnique({
+        where: { phoneNumber: '9999999999' },
+      });
+      // If found with old format, update to new format
+      if (oldFormatUser) {
+        // Check if normalized format already exists (edge case)
+        const normalizedExists = await prisma.user.findUnique({
+          where: { phoneNumber: superAdminPhone },
+        });
+        if (normalizedExists && normalizedExists.id !== oldFormatUser.id) {
+          // Normalized format exists with different ID - delete old one
+          await prisma.user.delete({ where: { id: oldFormatUser.id } });
+          superAdminUser = normalizedExists;
+          console.log(`  🔄 Removed duplicate user with old phone format`);
+        } else {
+          // Update to normalized format
+          superAdminUser = await prisma.user.update({
+            where: { id: oldFormatUser.id },
+            data: { phoneNumber: superAdminPhone },
+          });
+          console.log(`  🔄 Updated phone number format for existing user`);
+        }
+      }
+    }
 
     if (!superAdminUser) {
       // Create super admin user
@@ -489,7 +518,7 @@ async function main() {
   console.log(`   - ${defaultRoles.length} roles`);
   console.log(`   - PolicyMeta initialized`);
   console.log(`   - Super admin user (phone: ${superAdminPhone})`);
-  console.log('\n💡 You can login with phone number: 9999999999');
+  console.log('\n💡 You can login with phone number: 9999999999 (or +19999999999)');
 }
 
 main()

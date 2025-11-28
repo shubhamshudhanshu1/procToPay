@@ -47,7 +47,6 @@ export default function AppHeader({ title, showContext = true }) {
 
   const handleProfileClick = () => {
     handleMenuClose();
-    navigate('/dashboard');
   };
 
   const handleSettingsClick = () => {
@@ -273,8 +272,14 @@ export default function AppHeader({ title, showContext = true }) {
                       sx={{
                         height: 20,
                         fontSize: '0.7rem',
-                        backgroundColor: (role.tenantId === null || role.tenantId === undefined) ? '#E3F2FD' : '#F3E5F5',
-                        color: (role.tenantId === null || role.tenantId === undefined) ? '#1976D2' : '#7B1FA2',
+                        backgroundColor:
+                          role.tenantId === null || role.tenantId === undefined
+                            ? '#E3F2FD'
+                            : '#F3E5F5',
+                        color:
+                          role.tenantId === null || role.tenantId === undefined
+                            ? '#1976D2'
+                            : '#7B1FA2',
                         fontWeight: 500,
                         '& .MuiChip-label': {
                           px: 1,

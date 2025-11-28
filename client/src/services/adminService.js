@@ -110,30 +110,30 @@ export const adminService = {
     return response.data;
   },
 
-  getTenantUsers: async (tenantId) => {
-    const response = await api.get(`/admin/users/tenants/${tenantId}`);
+  // Assign global role to user (admin route)
+  assignGlobalRoleToUser: async (userId, roleId, status = 'active') => {
+    const response = await api.post(`/admin/users/${userId}/roles`, {
+      roleId,
+      status,
+    });
     return response.data;
   },
 
-  assignRoleToUser: async (tenantId, userId, roleId, status = 'active') => {
-    const response = await api.post(
-      `/admin/users/tenants/${tenantId}/${userId}/roles`,
-      { roleId, status }
-    );
+  // Revoke global role from user (admin route)
+  revokeGlobalRoleFromUser: async (userId, roleId) => {
+    const response = await api.delete(`/admin/users/${userId}/roles/${roleId}`);
     return response.data;
   },
 
-  revokeRoleFromUser: async (tenantId, userId, roleId) => {
-    const response = await api.delete(
-      `/admin/users/tenants/${tenantId}/${userId}/roles/${roleId}`
-    );
+  // Get user's global roles (admin route)
+  getUserGlobalRoles: async (userId) => {
+    const response = await api.get(`/admin/users/${userId}/roles`);
     return response.data;
   },
 
-  getUserRoles: async (tenantId, userId) => {
-    const response = await api.get(
-      `/admin/users/tenants/${tenantId}/${userId}/roles`
-    );
+  // Update user details (admin route)
+  updateUser: async (userId, data) => {
+    const response = await api.patch(`/admin/users/${userId}`, data);
     return response.data;
   },
 

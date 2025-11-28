@@ -46,3 +46,50 @@ CREATE UNIQUE INDEX IF NOT EXISTS "roles_slug_tenantId_key" ON "roles"("slug", "
 -- Step 10: Add index on tenantId for performance
 CREATE INDEX IF NOT EXISTS "roles_tenantId_idx" ON "roles"("tenantId");
 
+-- Step 11: Fix UserRole Scope Enforcement Trigger
+-- The trigger was referencing the removed 'scope' column
+-- Update to use tenantId from roles table instead (null = global, set = tenant)
+DROP TRIGGER IF EXISTS trigger_validate_user_role_scope ON user_roles;
+DROP FUNCTION IF EXISTS validate_user_role_scope();
+
+-- Recreate the function using tenantId instead of scope
+CREATE OR REPLACE FUNCTION validate_user_role_scope()
+RETURNS TRIGGER AS $$
+DECLARE
+  role_tenant_id UUID;
+BEGIN
+  -- Get role's tenantId (null = global role, UUID = tenant role)
+  SELECT "tenantId" INTO role_tenant_id
+  FROM roles
+  WHERE id = NEW."roleId";
+
+  -- If role not found, allow it (will be caught by foreign key constraint)
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  -- Global role (tenantId IS NULL) cannot have tenantId in UserRole
+  IF role_tenant_id IS NULL AND NEW."tenantId" IS NOT NULL THEN
+    RAISE EXCEPTION 'Global roles cannot be assigned to a tenant. Role % is global but tenantId is provided.', NEW."roleId";
+  END IF;
+
+  -- Tenant role (tenantId IS NOT NULL) must have matching tenantId in UserRole
+  IF role_tenant_id IS NOT NULL AND NEW."tenantId" IS NULL THEN
+    RAISE EXCEPTION 'Tenant roles must be assigned to a tenant. Role % is tenant-scoped but tenantId is NULL.', NEW."roleId";
+  END IF;
+
+  -- Tenant role's tenantId must match UserRole's tenantId
+  IF role_tenant_id IS NOT NULL AND NEW."tenantId" IS NOT NULL AND role_tenant_id != NEW."tenantId" THEN
+    RAISE EXCEPTION 'Tenant role tenantId mismatch. Role belongs to tenant % but assignment has tenantId %.', role_tenant_id, NEW."tenantId";
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Recreate the trigger
+CREATE TRIGGER trigger_validate_user_role_scope
+  BEFORE INSERT OR UPDATE ON user_roles
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_user_role_scope();
+

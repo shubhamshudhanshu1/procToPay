@@ -191,6 +191,9 @@ const VerifyOTP = () => {
     }
   };
 
+  // Track session token and user data from registration verification
+  const [registrationSessionData, setRegistrationSessionData] = useState(null);
+
   // Verify OTP for a specific contact
   const verifyContactOTP = async (contact) => {
     const otpValue = isRegistration ? otpValues[contact.type] : singleOtpValue;
@@ -210,7 +213,28 @@ const VerifyOTP = () => {
     }
 
     try {
-      const response = await authService.verifyOTP(contact.value, otpValue);
+      let response;
+      if (isRegistration) {
+        // Use registration verification endpoint which requires userId
+        if (!contacts?.userId) {
+          throw new Error('User ID is required for registration verification.');
+        }
+        response = await authService.verifyRegistrationOTP(
+          contacts.userId,
+          contact.value,
+          otpValue
+        );
+        // Store session token from registration verification
+        if (response.sessionToken) {
+          setRegistrationSessionData({
+            sessionToken: response.sessionToken,
+            user: response.user,
+            requiresTenantSelection: response.requiresTenantSelection,
+          });
+        }
+      } else {
+        response = await authService.verifyOTP(contact.value, otpValue);
+      }
 
       if (isRegistration) {
         setVerifiedContacts((prev) => [...prev, contact.type]);
@@ -266,9 +290,17 @@ const VerifyOTP = () => {
 
   // Check if all contacts are verified (for registration)
   useEffect(() => {
-    if (isRegistration && verifiedContacts.length === contactsToVerify.length) {
+    if (
+      isRegistration &&
+      verifiedContacts.length === contactsToVerify.length &&
+      registrationSessionData
+    ) {
       const completeAuth = async () => {
         try {
+          // Log in the user with the session token from registration verification
+          const { sessionToken, user: userData, requiresTenantSelection } = registrationSessionData;
+          login(userData, sessionToken);
+
           // Fetch full user context (roles, permissions, etc.) after registration
           // This ensures essential user details are available in the UI
           try {
@@ -279,15 +311,23 @@ const VerifyOTP = () => {
             // Continue anyway - user can still proceed
           }
 
-          // Redirect to tenant selection after registration
-          navigate('/tenant-selection');
+          // Always redirect to tenant selection after registration
+          // New users need to select/create a tenant before accessing the dashboard
+          navigate('/tenant-selection', { replace: true });
         } catch (err) {
           setError('Failed to complete authentication. Please try again.');
         }
       };
       completeAuth();
     }
-  }, [verifiedContacts, contactsToVerify.length, isRegistration, navigate]);
+  }, [
+    verifiedContacts,
+    contactsToVerify.length,
+    isRegistration,
+    registrationSessionData,
+    login,
+    navigate,
+  ]);
 
   // Handle resend OTP
   const handleResendOTP = async (contact) => {
@@ -303,7 +343,7 @@ const VerifyOTP = () => {
       if (isRegistration) {
         await authService.resendRegistrationOTP(contact.value);
       } else {
-      await authService.requestOTP(contact.value);
+        await authService.requestOTP(contact.value);
       }
       setSuccess(`OTP sent successfully to ${contact.type === 'email' ? 'email' : 'phone'}!`);
 

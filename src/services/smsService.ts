@@ -40,14 +40,19 @@ class SMSService {
    * @returns Promise<void>
    */
   async sendOTP(phoneNumber: string, otp: string): Promise<void> {
+    // Get OTP config (used for both hardcoded check and expiry time)
+    const otpConfig = await configService.getOTPConfig();
+
     // Check if SMS is enabled in config
     const featureFlags = await configService.getFeatureFlags();
-    if (!featureFlags.smsEnabled && !this.smsEnabled) {
+
+    // Allow sending if: SMS is enabled OR Twilio is configured OR hardcoded OTP is enabled
+    // (Hardcoded mode will just log to console, so we shouldn't throw an error)
+    if (!featureFlags.smsEnabled && !this.smsEnabled && !otpConfig.hardcodedEnabled) {
       throw new Error('SMS service is not enabled');
     }
 
-    // Get OTP config for expiry time
-    const otpConfig = await configService.getOTPConfig();
+    // Calculate expiry time
     const expiresInMinutes = Math.floor(otpConfig.expirySeconds / 60);
 
     const message = `Your verification code is: ${otp}. This code will expire in ${expiresInMinutes} minutes.`;
@@ -90,4 +95,3 @@ class SMSService {
 export const smsService = new SMSService();
 
 export default smsService;
-

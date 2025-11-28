@@ -16,6 +16,11 @@ export const authService = {
     return response.data;
   },
 
+  verifyRegistrationOTP: async (userId, contact, otp) => {
+    const response = await api.post('/auth/register/verify', { userId, contact, otp });
+    return response.data;
+  },
+
   getCurrentUser: async () => {
     const response = await api.get('/me');
     return response.data;

@@ -132,7 +132,7 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       success: true,
       userId: result.userId,
       contactType: result.contactType,
-      message: `Verification code sent to your ${result.contactType}`,
+      message: `Verification code sent to your contact channels.`,
     });
   } catch (error: any) {
     // Convert error to proper format

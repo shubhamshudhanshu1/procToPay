@@ -415,37 +415,59 @@ class AuthService {
       throw new Error('Invalid phone number.');
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: normalizedEmail }, { phoneNumber: normalizedPhone }],
-      },
+    // Check for duplicate email (separate check)
+    const existingUserByEmail = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    // Check for duplicate phone number (separate check)
+    const existingUserByPhone = await prisma.user.findUnique({
+      where: { phoneNumber: normalizedPhone },
     });
 
     let user;
-    if (existingUser) {
-      // If user exists but is pending (not verified), allow re-registration
-      if (
-        existingUser.status === 'pending' &&
-        !existingUser.emailVerifiedAt &&
-        !existingUser.phoneVerifiedAt
-      ) {
-        user = await prisma.user.update({
-          where: { id: existingUser.id },
-          data: {
-            firstName,
-            lastName,
-            email: normalizedEmail,
-            phoneNumber: normalizedPhone,
-            emailVerifiedAt: null,
-            phoneVerifiedAt: null,
-            status: 'pending',
-          },
-        });
+
+    // Handle duplicate detection - prevent all duplicates
+    if (existingUserByEmail && existingUserByPhone) {
+      // Both email and phone exist
+      if (existingUserByEmail.id === existingUserByPhone.id) {
+        // Same user - check if they can re-register (only if pending and not verified)
+        if (
+          existingUserByEmail.status === 'pending' &&
+          !existingUserByEmail.emailVerifiedAt &&
+          !existingUserByEmail.phoneVerifiedAt
+        ) {
+          // Allow re-registration for the same pending user who hasn't verified
+          user = await prisma.user.update({
+            where: { id: existingUserByEmail.id },
+            data: {
+              firstName,
+              lastName,
+              email: normalizedEmail,
+              phoneNumber: normalizedPhone,
+              emailVerifiedAt: null,
+              phoneVerifiedAt: null,
+              status: 'pending',
+            },
+          });
+        } else {
+          // User exists and is active or partially verified - prevent duplicate
+          throw new Error('An account with this email and phone number already exists.');
+        }
       } else {
-        throw new Error('User with this email or phone number already exists.');
+        // Different users - email belongs to one user, phone to another
+        throw new Error(
+          'This email and phone number are already associated with different accounts.'
+        );
       }
+    } else if (existingUserByEmail) {
+      // Email already exists - prevent duplicate email
+      throw new Error('An account with this email address already exists.');
+    } else if (existingUserByPhone) {
+      // Phone number already exists - prevent duplicate phone
+      throw new Error('An account with this phone number already exists.');
     } else {
+      // No duplicates found, create new user
       user = await prisma.user.create({
         data: {
           firstName,
@@ -535,7 +557,27 @@ class AuthService {
     // Update verification timestamp
     await this.updateVerificationTimestamp(user.id, contactType);
 
-    return this.buildUserResult(user);
+    // Refresh user to get updated verification timestamps
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
+
+    if (!updatedUser) {
+      throw new Error('User not found after verification update.');
+    }
+
+    // Activate user if any contact method (email or phone) is verified
+    if (
+      updatedUser.status === 'pending' &&
+      (updatedUser.emailVerifiedAt || updatedUser.phoneVerifiedAt)
+    ) {
+      await prisma.user.update({
+        where: { id: updatedUser.id },
+        data: { status: 'active' },
+      });
+    }
+
+    return this.buildUserResult(updatedUser);
   }
 
   /**

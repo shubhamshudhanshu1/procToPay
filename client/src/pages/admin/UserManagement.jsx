@@ -22,21 +22,27 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { Search, Add } from '@mui/icons-material';
+import { Search, Add, Edit } from '@mui/icons-material';
 import { adminService } from '../../services/adminService';
 import { usePermissions } from '../../hooks/usePermissions';
-import { useTenantContext } from '../../hooks/useTenantContext';
 
 export default function UserManagement() {
   const { hasPermission } = usePermissions();
-  const { tenantId, isInTenantContext } = useTenantContext();
   const queryClient = useQueryClient();
   const [searchEmail, setSearchEmail] = useState('');
   const [searchFilter, setSearchFilter] = useState(''); // Actual filter applied
   const [openRoleDialog, setOpenRoleDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [userRolesInTenant, setUserRolesInTenant] = useState([]);
+  const [userGlobalRoles, setUserGlobalRoles] = useState([]);
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    status: 'active',
+  });
 
   const { data: rolesData } = useQuery({
     queryKey: ['roles'],
@@ -55,12 +61,10 @@ export default function UserManagement() {
   });
 
   const assignRoleMutation = useMutation({
-    mutationFn: ({ tenantId, userId, roleId }) =>
-      adminService.assignRoleToUser(tenantId, userId, roleId),
+    mutationFn: ({ userId, roleId }) => adminService.assignGlobalRoleToUser(userId, roleId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['tenantUsers', tenantId]);
-      queryClient.invalidateQueries(['userRoles', tenantId]);
       queryClient.invalidateQueries(['users']); // Refresh users list
+      queryClient.invalidateQueries(['userGlobalRoles', selectedUser?.id]); // Refresh user roles
       setOpenRoleDialog(false);
       setSelectedUser(null);
       setSelectedRoleId('');
@@ -68,12 +72,26 @@ export default function UserManagement() {
   });
 
   const revokeRoleMutation = useMutation({
-    mutationFn: ({ tenantId, userId, roleId }) =>
-      adminService.revokeRoleFromUser(tenantId, userId, roleId),
+    mutationFn: ({ userId, roleId }) => adminService.revokeGlobalRoleFromUser(userId, roleId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['tenantUsers', tenantId]);
-      queryClient.invalidateQueries(['userRoles', tenantId]);
       queryClient.invalidateQueries(['users']); // Refresh users list
+      queryClient.invalidateQueries(['userGlobalRoles', selectedUser?.id]); // Refresh user roles
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ userId, data }) => adminService.updateUser(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['users']); // Refresh users list
+      setOpenEditDialog(false);
+      setSelectedUser(null);
+      setEditFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phoneNumber: '',
+        status: 'active',
+      });
     },
   });
 
@@ -88,47 +106,86 @@ export default function UserManagement() {
   };
 
   const handleOpenRoleDialog = async (user) => {
-    if (!isInTenantContext || !tenantId) {
-      alert('Please select a tenant context first to assign roles');
-      return;
-    }
-
     setSelectedUser(user);
     setOpenRoleDialog(true);
 
-    // Fetch user's existing roles in tenant
-    if (tenantId) {
-      try {
-        const rolesData = await adminService.getUserRoles(tenantId, user.id);
-        setUserRolesInTenant(rolesData?.roles || []);
-      } catch (err) {
-        console.error('Failed to fetch user roles:', err);
-        setUserRolesInTenant([]);
-      }
+    // Fetch user's existing global roles
+    try {
+      const rolesData = await adminService.getUserGlobalRoles(user.id);
+      setUserGlobalRoles(rolesData?.roles || []);
+    } catch (err) {
+      console.error('Failed to fetch user roles:', err);
+      setUserGlobalRoles([]);
     }
   };
 
   const handleAssignRole = () => {
-    if (!selectedRoleId || !selectedUser || !tenantId) return;
+    if (!selectedRoleId || !selectedUser) return;
 
     assignRoleMutation.mutate({
-      tenantId,
       userId: selectedUser.id,
       roleId: selectedRoleId,
     });
   };
 
   const handleRevokeRole = (userId, roleId) => {
-    if (!userId || !tenantId) return;
+    if (!userId) return;
 
     revokeRoleMutation.mutate({
-      tenantId,
       userId,
       roleId,
     });
+    // Update local state immediately
+    setUserGlobalRoles(userGlobalRoles.filter((r) => r.id !== roleId));
   };
 
-  const tenantRoles = (rolesData?.roles || []).filter((role) => role.tenantId !== null && role.tenantId !== undefined);
+  const handleOpenEditDialog = (user) => {
+    setSelectedUser(user);
+    setEditFormData({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      phoneNumber: user.phoneNumber || '',
+      status: user.status || 'active',
+    });
+    setOpenEditDialog(true);
+  };
+
+  const handleUpdateUser = () => {
+    if (!selectedUser) return;
+
+    const updateData = {};
+    if (editFormData.firstName !== selectedUser.firstName) {
+      updateData.firstName = editFormData.firstName;
+    }
+    if (editFormData.lastName !== selectedUser.lastName) {
+      updateData.lastName = editFormData.lastName;
+    }
+    if (editFormData.email !== selectedUser.email) {
+      updateData.email = editFormData.email;
+    }
+    if (editFormData.phoneNumber !== selectedUser.phoneNumber) {
+      updateData.phoneNumber = editFormData.phoneNumber || null;
+    }
+    if (editFormData.status !== selectedUser.status) {
+      updateData.status = editFormData.status;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      setOpenEditDialog(false);
+      return;
+    }
+
+    updateUserMutation.mutate({
+      userId: selectedUser.id,
+      data: updateData,
+    });
+  };
+
+  // Filter for global roles only (tenantId === null)
+  const globalRoles = (rolesData?.roles || []).filter(
+    (role) => role.tenantId === null || role.tenantId === undefined
+  );
   const users = usersData?.users || [];
 
   if (usersLoading) {
@@ -192,6 +249,7 @@ export default function UserManagement() {
               <TableCell>Email</TableCell>
               <TableCell>Phone</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Roles</TableCell>
               <TableCell>Created At</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
@@ -199,7 +257,7 @@ export default function UserManagement() {
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
                     {searchEmail ? 'No users found matching the search' : 'No users found'}
                   </Typography>
@@ -228,17 +286,47 @@ export default function UserManagement() {
                       size="small"
                     />
                   </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 400 }}>
+                      {user.roles && user.roles.length > 0 ? (
+                        user.roles.map((role) => (
+                          <Chip
+                            key={role.id}
+                            label={role.name}
+                            size="small"
+                            color={role.isGlobal ? 'primary' : 'default'}
+                            title={role.isGlobal ? 'Global Role' : `Tenant: ${role.tenantName || 'Unknown'}`}
+                          />
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          No roles
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
                   <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    {hasPermission('user:edit') && isInTenantContext && tenantId && (
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenRoleDialog(user)}
-                        title="Assign Role"
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
-                    )}
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      {hasPermission('user:edit') && (
+                        <>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenEditDialog(user)}
+                            title="Edit User"
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenRoleDialog(user)}
+                            title="Assign Global Role"
+                          >
+                            <Add fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
@@ -259,28 +347,27 @@ export default function UserManagement() {
         fullWidth
       >
         <DialogTitle>
-          Assign Role to{' '}
+          Assign Global Role to{' '}
           {selectedUser?.firstName && selectedUser?.lastName
             ? `${selectedUser.firstName} ${selectedUser.lastName}`
             : selectedUser?.firstName || selectedUser?.email}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1 }}>
-            {/* Show existing roles */}
-            {userRolesInTenant.length > 0 && (
+            {/* Show existing global roles */}
+            {userGlobalRoles.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Current Roles in Tenant:
+                  Current Global Roles:
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {userRolesInTenant.map((role) => (
+                  {userGlobalRoles.map((role) => (
                     <Chip
                       key={role.id}
                       label={role.name}
                       size="small"
                       onDelete={() => {
                         handleRevokeRole(selectedUser.id, role.id);
-                        setUserRolesInTenant(userRolesInTenant.filter((r) => r.id !== role.id));
                       }}
                     />
                   ))}
@@ -290,24 +377,24 @@ export default function UserManagement() {
 
             <TextField
               select
-              label="Select Role to Assign"
+              label="Select Global Role to Assign"
               value={selectedRoleId}
               onChange={(e) => setSelectedRoleId(e.target.value)}
               fullWidth
               sx={{ mt: 2 }}
             >
-              {tenantRoles
-                .filter((role) => !userRolesInTenant.some((ur) => ur.id === role.id))
+              {globalRoles
+                .filter((role) => !userGlobalRoles.some((ur) => ur.id === role.id))
                 .map((role) => (
                   <MenuItem key={role.id} value={role.id}>
-                    {role.name} ({role.tenantId === null || role.tenantId === undefined ? 'Global' : 'Tenant'})
+                    {role.name}
                   </MenuItem>
                 ))}
             </TextField>
-            {tenantRoles.filter((role) => !userRolesInTenant.some((ur) => ur.id === role.id))
+            {globalRoles.filter((role) => !userGlobalRoles.some((ur) => ur.id === role.id))
               .length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                All available roles are already assigned
+                All available global roles are already assigned
               </Typography>
             )}
           </Box>
@@ -328,6 +415,87 @@ export default function UserManagement() {
             disabled={!selectedRoleId || assignRoleMutation.isLoading}
           >
             Assign Role
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog
+        open={openEditDialog}
+        onClose={() => {
+          setOpenEditDialog(false);
+          setSelectedUser(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Edit User{' '}
+          {selectedUser?.firstName && selectedUser?.lastName
+            ? `${selectedUser.firstName} ${selectedUser.lastName}`
+            : selectedUser?.firstName || selectedUser?.email}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="First Name"
+              value={editFormData.firstName}
+              onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })}
+              fullWidth
+            />
+
+            <TextField
+              label="Last Name"
+              value={editFormData.lastName}
+              onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })}
+              fullWidth
+            />
+
+            <TextField
+              label="Email"
+              type="email"
+              value={editFormData.email}
+              onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+              fullWidth
+            />
+
+            <TextField
+              label="Phone Number"
+              value={editFormData.phoneNumber || ''}
+              onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
+              fullWidth
+            />
+
+            <TextField
+              select
+              label="Status"
+              value={editFormData.status}
+              onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="locked">Locked</MenuItem>
+              <MenuItem value="disabled">Disabled</MenuItem>
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setOpenEditDialog(false);
+              setSelectedUser(null);
+            }}
+            disabled={updateUserMutation.isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdateUser}
+            variant="contained"
+            disabled={updateUserMutation.isLoading}
+          >
+            {updateUserMutation.isLoading ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
