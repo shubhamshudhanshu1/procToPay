@@ -147,6 +147,49 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
 });
 
 /**
+ * POST /api/auth/register/resend
+ * Resend OTP for registration (for pending users only)
+ */
+router.post('/register/resend', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { contact } = loginRequestSchema.parse(req.body); // Reuse same schema
+
+    await authService.resendRegistrationOTP(contact, req.ip, req.headers['user-agent']);
+
+    // Return 204 to prevent user enumeration
+    res.status(204).send();
+    return;
+  } catch (error: any) {
+    // Handle specific errors that should be returned to frontend
+    if (error.message?.includes('Rate limit')) {
+      return res.status(429).json({
+        error: error.message,
+      });
+    }
+
+    if (
+      error.message?.includes('not found') ||
+      error.message?.includes('already completed') ||
+      error.message?.includes('Registration is currently disabled') ||
+      error.message?.includes('authentication is disabled')
+    ) {
+      return res.status(403).json({
+        error: error.message,
+      });
+    }
+
+    // Log other errors but still return 204 to prevent user enumeration
+    if (error instanceof ZodError) {
+      // Validation errors - still return 204 for security
+      console.error('Registration resend validation error:', error.errors);
+    } else {
+      console.error('Registration resend error:', error);
+    }
+    return res.status(204).send();
+  }
+});
+
+/**
  * POST /api/auth/register/verify
  * Verify OTP for registration
  * After verification, generates a short-lived session token (no tenantId yet)

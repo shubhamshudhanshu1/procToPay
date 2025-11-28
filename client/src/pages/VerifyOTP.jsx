@@ -299,7 +299,12 @@ const VerifyOTP = () => {
     setResendLoading(true);
 
     try {
-      await authService.requestOTP(contact.value);
+      // Use different endpoint for registration vs login
+      if (isRegistration) {
+        await authService.resendRegistrationOTP(contact.value);
+      } else {
+        await authService.requestOTP(contact.value);
+      }
       setSuccess(`OTP sent successfully to ${contact.type === 'email' ? 'email' : 'phone'}!`);
 
       if (isRegistration) {

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { tokenService } from '../services/tokenService';
-import { AuthContext } from '../types/auth';
 
 export interface AuthenticatedRequest extends Request {
   session?: any;

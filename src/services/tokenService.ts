@@ -50,14 +50,11 @@ class TokenService {
     // Hash token for storage
     const tokenHash = crypto.createHash('sha256').update(token).digest();
 
-    // Get policy version
-    const policyVer = await policyService.getPolicyVersion();
-
     // Calculate expiry
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + this.refreshTokenExpiry);
 
-    // Store in database
+    // Store in database (policyVer is stored in JWT, not in DB record)
     const refreshTokenRecord = await prisma.refreshToken.create({
       data: {
         userId: payload.userId,
@@ -69,15 +66,11 @@ class TokenService {
       },
     });
 
-    // Sign token with payload and token ID (for validation)
-    return jwt.sign(
-      { ...payload, policyVer, tokenId: refreshTokenRecord.id },
-      this.refreshTokenSecret,
-      {
-        expiresIn: this.refreshTokenExpiry,
-        algorithm: 'HS256',
-      }
-    );
+    // Sign token with payload (includes policyVer) and token ID (for validation)
+    return jwt.sign({ ...payload, tokenId: refreshTokenRecord.id }, this.refreshTokenSecret, {
+      expiresIn: this.refreshTokenExpiry,
+      algorithm: 'HS256',
+    });
   }
 
   /**
@@ -228,4 +221,3 @@ class TokenService {
 }
 
 export const tokenService = new TokenService();
-

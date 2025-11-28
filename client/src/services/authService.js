@@ -6,6 +6,11 @@ export const authService = {
     return response.data;
   },
 
+  resendRegistrationOTP: async (contact) => {
+    const response = await api.post('/auth/register/resend', { contact });
+    return response.data;
+  },
+
   verifyOTP: async (contact, otp) => {
     const response = await api.post('/auth/login/verify', { contact, otp });
     return response.data;
