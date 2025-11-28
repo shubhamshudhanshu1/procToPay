@@ -8,11 +8,20 @@ export const usePermissions = () => {
   const { permissions, roles } = useAuthStore();
 
   /**
+   * Check if user has universal permission (all permissions)
+   * @returns {boolean}
+   */
+  const hasUniversalPermission = () => {
+    return permissions.includes('*');
+  };
+
+  /**
    * Check if user has wildcard permission (all permissions)
+   * @deprecated Use hasUniversalPermission() instead. Kept for backward compatibility.
    * @returns {boolean}
    */
   const hasWildcardPermission = () => {
-    return permissions.includes('*');
+    return hasUniversalPermission();
   };
 
   /**
@@ -21,8 +30,8 @@ export const usePermissions = () => {
    * @returns {boolean}
    */
   const hasPermission = (permissionSlug) => {
-    // User with wildcard permission has all permissions
-    if (hasWildcardPermission()) {
+    // User with universal permission has all permissions
+    if (hasUniversalPermission()) {
       return true;
     }
     return permissions.includes(permissionSlug);
@@ -34,8 +43,8 @@ export const usePermissions = () => {
    * @returns {boolean}
    */
   const hasAnyPermission = (permissionSlugs) => {
-    // User with wildcard permission has all permissions
-    if (hasWildcardPermission()) {
+    // User with universal permission has all permissions
+    if (hasUniversalPermission()) {
       return true;
     }
     return permissionSlugs.some((slug) => permissions.includes(slug));
@@ -47,8 +56,8 @@ export const usePermissions = () => {
    * @returns {boolean}
    */
   const hasAllPermissions = (permissionSlugs) => {
-    // User with wildcard permission has all permissions
-    if (hasWildcardPermission()) {
+    // User with universal permission has all permissions
+    if (hasUniversalPermission()) {
       return true;
     }
     return permissionSlugs.every((slug) => permissions.includes(slug));
@@ -90,7 +99,8 @@ export const usePermissions = () => {
     hasGlobalRole,
     hasAnyGlobalRole,
     hasTenantRole,
-    hasWildcardPermission,
+    hasUniversalPermission,
+    hasWildcardPermission, // Deprecated: kept for backward compatibility
     permissions,
     roles,
   };

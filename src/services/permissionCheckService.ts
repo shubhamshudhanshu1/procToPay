@@ -6,7 +6,7 @@ import { EffectivePermission } from '../types/rbac';
  * Permission Check Service
  *
  * Centralized permission checking with Redis caching for performance.
- * Queries v_user_effective_perms view and handles wildcard permission ('*') special case.
+ * Queries v_user_effective_perms view and handles universal permission ('*') special case.
  * Any role with '*' permission grants all permissions (more flexible than hardcoded role checks).
  * Cache is invalidated when policy version changes.
  */
@@ -16,54 +16,63 @@ class PermissionCheckService {
   private readonly cacheTTL = 300; // 5 minutes
 
   /**
-   * Check if user has wildcard permission (all permissions)
-   * 
-   * Currently, this checks if user has the 'super_admin' role (which has all permissions).
-   * This is more flexible than hardcoding the check - any role with all permissions would work.
-   * In the future, if we add a wildcard permission ('*') to the database, this can be updated
-   * to check for that permission instead.
+   * Check if user has universal permission ('*') that grants all permissions
+   *
+   * Checks the database for '*' permission assigned to any of the user's active roles.
+   * This is permission-based rather than role-based, making it more flexible.
    *
    * @param userId User UUID
    * @param tenantId Optional tenant UUID (null for global context)
-   * @returns true if user has wildcard access (all permissions)
+   * @returns true if user has universal permission (all permissions)
    */
-  private async hasWildcardPermission(
-    userId: string,
-    tenantId?: string | null
-  ): Promise<boolean> {
-    // Check cache first for wildcard permission
-    const wildcardCacheKey = `${this.cachePrefix}wildcard:${userId}:${tenantId || 'global'}`;
-    const cached = await redis.get(wildcardCacheKey);
-    if (cached !== null) {
-      return cached === 'true';
+  private async hasUniversalPermission(userId: string, tenantId?: string | null): Promise<boolean> {
+    // Check cache first for universal permission
+    const universalCacheKey = `${this.cachePrefix}universal:${userId}:${tenantId || 'global'}`;
+    try {
+      const cached = await redis.get(universalCacheKey);
+      if (cached !== null) {
+        return cached === 'true';
+      }
+    } catch (error) {
+      // Redis failure - continue to database check
+      console.warn(
+        'Redis cache read failed for universal permission, falling back to database:',
+        error
+      );
     }
 
-    // Query database view for super_admin role (which grants all permissions)
-    // This checks the role_slug instead of a specific permission
-    // More flexible: any role with role_slug that grants all permissions would work
-    // Future: can check for wildcard permission ('*') if we add it to the database
-    const result = await prisma.$queryRaw<Array<{ count: bigint }>>`
-      SELECT COUNT(*) as count
-      FROM v_user_effective_perms
-      WHERE user_id = ${userId}::uuid
-        AND (tenant_id = ${tenantId}::uuid OR tenant_id IS NULL)
-        AND role_slug = 'super_admin'
-      LIMIT 1
+    // Query database view for '*' permission (universal permission that grants all permissions)
+    // This checks for the permission directly, not a specific role
+    // Any role with '*' permission grants full access
+    const result = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS(
+        SELECT 1
+        FROM v_user_effective_perms
+        WHERE user_id = ${userId}::uuid
+          AND (tenant_id = ${tenantId}::uuid OR tenant_id IS NULL)
+          AND permission_slug = '*'
+        LIMIT 1
+      ) as exists
     `;
 
-    const hasWildcard = (result[0]?.count ?? BigInt(0)) > 0;
+    const hasUniversal = result[0]?.exists ?? false;
 
     // Cache the result (same TTL as permissions)
-    await redis.setex(wildcardCacheKey, this.cacheTTL, hasWildcard ? 'true' : 'false');
+    try {
+      await redis.setex(universalCacheKey, this.cacheTTL, hasUniversal ? 'true' : 'false');
+    } catch (error) {
+      // Redis failure - non-critical, log and continue
+      console.warn('Redis cache write failed for universal permission:', error);
+    }
 
-    return hasWildcard;
+    return hasUniversal;
   }
 
   /**
    * Get user's effective permissions
    *
    * Queries v_user_effective_perms view or returns cached result.
-   * Users with wildcard permission ('*') automatically have all permissions.
+   * Users with universal permission ('*') automatically have all permissions.
    *
    * @param userId User UUID
    * @param tenantId Optional tenant UUID (null for global context)
@@ -75,12 +84,12 @@ class PermissionCheckService {
     tenantId?: string | null,
     forceRefresh = false
   ): Promise<EffectivePermission[]> {
-    // Check if user has wildcard permission (more flexible than role check)
-    // Any role with '*' permission grants all permissions
-    const hasWildcard = await this.hasWildcardPermission(userId, tenantId);
+    // Check if user has universal permission ('*') which grants all permissions
+    // Any role with '*' permission grants full access
+    const hasUniversal = await this.hasUniversalPermission(userId, tenantId);
 
-    // User with wildcard permission has all permissions
-    if (hasWildcard) {
+    // User with universal permission has all permissions
+    if (hasUniversal) {
       // Return a marker that indicates all permissions
       // This is handled specially in permission checks
       return [{ permission_slug: '*', module: '*', action: '*' }] as any;
@@ -121,7 +130,7 @@ class PermissionCheckService {
    * Check if user has a specific permission
    *
    * @param userId User UUID
-   * @param permissionSlug Permission slug (e.g., 'tenant:create', 'user:edit') or '*' for wildcard permission check
+   * @param permissionSlug Permission slug (e.g., 'tenant:create', 'user:edit') or '*' for universal permission check
    * @param tenantId Optional tenant UUID (null for global context)
    * @returns true if user has the permission
    */
@@ -130,23 +139,22 @@ class PermissionCheckService {
     permissionSlug: string,
     tenantId?: string | null
   ): Promise<boolean> {
-    // Check if user has wildcard permission (grants all permissions)
-    // More flexible than checking for a specific role
-    const hasWildcard = await this.hasWildcardPermission(userId, tenantId);
-    if (hasWildcard) {
+    // Check if user has universal permission ('*') which grants all permissions
+    const hasUniversal = await this.hasUniversalPermission(userId, tenantId);
+    if (hasUniversal) {
       return true;
     }
 
-    // Special case: '*' means wildcard permission check
+    // Special case: '*' means universal permission check
     if (permissionSlug === '*') {
-      return hasWildcard;
+      return hasUniversal;
     }
 
     // Get user's effective permissions
     const permissions = await this.getUserEffectivePermissions(userId, tenantId);
 
     // Check if permission exists in the list
-    // Handle special marker for super admin (permission_slug === '*')
+    // Handle special marker for universal permission (permission_slug === '*')
     return permissions.some(
       (p) => p.permission_slug === permissionSlug || p.permission_slug === '*'
     );
@@ -165,9 +173,9 @@ class PermissionCheckService {
     permissionSlugs: string[],
     tenantId?: string | null
   ): Promise<boolean> {
-    // User with wildcard permission has all permissions
-    const hasWildcard = await this.hasWildcardPermission(userId, tenantId);
-    if (hasWildcard) {
+    // User with universal permission ('*') has all permissions
+    const hasUniversal = await this.hasUniversalPermission(userId, tenantId);
+    if (hasUniversal) {
       return true;
     }
 
@@ -175,9 +183,7 @@ class PermissionCheckService {
     const permissions = await this.getUserEffectivePermissions(userId, tenantId);
 
     // Check if any permission exists in the list
-    return permissionSlugs.some((slug) =>
-      permissions.some((p) => p.permission_slug === slug)
-    );
+    return permissionSlugs.some((slug) => permissions.some((p) => p.permission_slug === slug));
   }
 
   /**
@@ -193,9 +199,9 @@ class PermissionCheckService {
     permissionSlugs: string[],
     tenantId?: string | null
   ): Promise<boolean> {
-    // User with wildcard permission has all permissions
-    const hasWildcard = await this.hasWildcardPermission(userId, tenantId);
-    if (hasWildcard) {
+    // User with universal permission ('*') has all permissions
+    const hasUniversal = await this.hasUniversalPermission(userId, tenantId);
+    if (hasUniversal) {
       return true;
     }
 
@@ -215,9 +221,9 @@ class PermissionCheckService {
    */
   async invalidateCache(userId: string, tenantId?: string | null) {
     const cacheKey = `${this.cachePrefix}${userId}:${tenantId || 'global'}`;
-    const wildcardCacheKey = `${this.cachePrefix}wildcard:${userId}:${tenantId || 'global'}`;
+    const universalCacheKey = `${this.cachePrefix}universal:${userId}:${tenantId || 'global'}`;
     await redis.del(cacheKey);
-    await redis.del(wildcardCacheKey);
+    await redis.del(universalCacheKey);
   }
 
   /**
@@ -225,7 +231,7 @@ class PermissionCheckService {
    * Called when policy version changes (roles/permissions updated)
    */
   async invalidateAllCache() {
-    // This will delete all permission cache keys including wildcard cache keys
+    // This will delete all permission cache keys including universal permission cache keys
     const keys = await redis.keys(`${this.cachePrefix}*`);
     if (keys.length > 0) {
       await redis.del(...keys);
@@ -234,4 +240,3 @@ class PermissionCheckService {
 }
 
 export const permissionCheckService = new PermissionCheckService();
-

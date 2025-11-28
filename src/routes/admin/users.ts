@@ -1,7 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { prisma } from '../../db/prisma';
-import { requireWildcardPermission, AuthenticatedRequest } from '../../middleware/permission';
+import { requirePermissionGlobal, AuthenticatedRequest } from '../../middleware/permission';
 import { userRoleService } from '../../services/userRoleService';
 import { roleService } from '../../services/roleService';
 import { userSearchSchema, assignRoleSchema } from '../../schemas/adminSchemas';
@@ -14,7 +14,7 @@ const router: Router = Router();
  */
 router.get(
   '/',
-  requireWildcardPermission(),
+  requirePermissionGlobal('user:view'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const email = req.query.email as string | undefined;
@@ -74,7 +74,7 @@ router.get(
  */
 router.get(
   '/search',
-  requireWildcardPermission(),
+  requirePermissionGlobal('user:view'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { email } = userSearchSchema.parse({ email: req.query.email });
@@ -116,7 +116,7 @@ router.get(
  */
 router.get(
   '/tenants/:tenantId',
-  requireWildcardPermission(),
+  requirePermissionGlobal('user:view'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const tenantId = req.params.tenantId;
@@ -186,7 +186,7 @@ router.get(
  */
 router.post(
   '/tenants/:tenantId/:userId/roles',
-  requireWildcardPermission(),
+  requirePermissionGlobal('user:edit'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { tenantId, userId } = req.params;
@@ -237,7 +237,7 @@ router.post(
  */
 router.delete(
   '/tenants/:tenantId/:userId/roles/:roleId',
-  requireWildcardPermission(),
+  requirePermissionGlobal('user:revoke'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { tenantId, userId, roleId } = req.params;
@@ -267,7 +267,7 @@ router.delete(
  */
 router.get(
   '/tenants/:tenantId/:userId/roles',
-  requireWildcardPermission(),
+  requirePermissionGlobal('user:view'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { tenantId, userId } = req.params;

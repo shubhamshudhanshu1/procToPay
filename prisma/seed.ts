@@ -226,11 +226,19 @@ const defaultPermissions = [
     slug: 'audit:view',
     description: 'View audit logs',
   },
+
+  // Universal permission (grants all permissions)
+  {
+    module: '*',
+    action: '*',
+    slug: '*',
+    description: 'Universal permission that grants access to all system operations',
+  },
 ];
 
 /**
  * Default roles for RBAC system
- * 
+ *
  * Note: tenant_admin is not created here because it requires a tenantId.
  * It should be created per tenant when tenants are created.
  */
@@ -238,8 +246,7 @@ const defaultRoles = [
   {
     slug: 'super_admin',
     name: 'Super Administrator',
-    scope: 'global' as const,
-    tenantId: null, // Global roles have tenantId=null
+    tenantId: null as string | null, // Global roles have tenantId=null
     description:
       'System-wide administrator with all permissions. Can manage tenants, roles, permissions, and users across the entire system.',
   },
@@ -328,13 +335,12 @@ async function main() {
   const roleMap = new Map<string, string>(); // slug -> id
 
   for (const role of defaultRoles) {
-    // Use composite unique key (slug, tenantId) for lookup
-    const existing = await prisma.role.findUnique({
+    // Use findFirst for composite unique key with nullable tenantId
+    // Prisma's findUnique doesn't handle nullable fields in composite keys well
+    const existing = await prisma.role.findFirst({
       where: {
-        slug_tenantId: {
-          slug: role.slug,
-          tenantId: role.tenantId ?? null,
-        },
+        slug: role.slug,
+        tenantId: role.tenantId,
       },
     });
 
@@ -346,8 +352,7 @@ async function main() {
         data: {
           slug: role.slug,
           name: role.name,
-          scope: role.scope,
-          tenantId: role.tenantId ?? null,
+          tenantId: role.tenantId,
           description: role.description,
         },
       });
@@ -358,83 +363,69 @@ async function main() {
 
   // Get role IDs for reuse in multiple sections
   const superAdminRoleId = roleMap.get('super_admin');
-  
+
   // Note: tenant_admin is not created in seed - it should be created per tenant
   // when tenants are created, as it requires a tenantId
 
   // Assign permissions to roles
   console.log('\n🔗 Assigning permissions to roles...');
 
-  // Super Admin: All permissions
+  // Super Admin: Assign '*' permission (grants all permissions)
   if (superAdminRoleId) {
-    const allPermissionIds = Array.from(permissionMap.values());
-    const existingRolePerms = await prisma.rolePermission.findMany({
-      where: { roleId: superAdminRoleId },
-    });
-    const existingPermissionIds = new Set(existingRolePerms.map((rp) => rp.permissionId));
+    const universalPermissionId = permissionMap.get('*');
 
-    const permissionsToAdd = allPermissionIds.filter((id) => !existingPermissionIds.has(id));
-    if (permissionsToAdd.length > 0) {
-      await prisma.rolePermission.createMany({
-        data: permissionsToAdd.map((permissionId) => ({
-          roleId: superAdminRoleId,
-          permissionId,
-        })),
-        skipDuplicates: true,
-      });
-      console.log(
-        `  ✅ super_admin: Assigned ${permissionsToAdd.length} permissions (total: ${allPermissionIds.length})`
-      );
+    if (!universalPermissionId) {
+      console.error('  ❌ Universal permission (*) not found!');
     } else {
-      console.log(`  ⏭️  super_admin: All permissions already assigned`);
+      const existingRolePerms = await prisma.rolePermission.findMany({
+        where: { roleId: superAdminRoleId },
+      });
+      const existingPermissionIds = new Set(existingRolePerms.map((rp) => rp.permissionId));
+
+      if (!existingPermissionIds.has(universalPermissionId)) {
+        await prisma.rolePermission.create({
+          data: {
+            roleId: superAdminRoleId,
+            permissionId: universalPermissionId,
+          },
+        });
+        console.log(`  ✅ super_admin: Assigned universal permission (*)`);
+      } else {
+        console.log(`  ⏭️  super_admin: Universal permission (*) already assigned`);
+      }
+
+      // Remove any other permissions from super_admin (only '*' is needed)
+      const otherPermissionIds = existingRolePerms
+        .filter((rp) => rp.permissionId !== universalPermissionId)
+        .map((rp) => rp.permissionId);
+
+      if (otherPermissionIds.length > 0) {
+        await prisma.rolePermission.deleteMany({
+          where: {
+            roleId: superAdminRoleId,
+            permissionId: { in: otherPermissionIds },
+          },
+        });
+        console.log(
+          `  🧹 super_admin: Removed ${otherPermissionIds.length} redundant permissions (only '*' is needed)`
+        );
+      }
     }
   }
 
   // Note: tenant_admin role is not created in seed because it requires a tenantId.
   // It should be created per tenant when tenants are created.
   // For now, we skip tenant_admin permission assignment in seed.
-  
+
   // If you need to create tenant_admin for a specific tenant, do it like this:
   // const tenantAdminRole = await prisma.role.create({
   //   data: {
   //     slug: 'tenant_admin',
   //     name: 'Tenant Administrator',
-  //     scope: 'tenant',
   //     tenantId: <tenantId>,
   //     description: 'Tenant-level administrator',
   //   },
   // });
-  
-  // Tenant Admin: Skip in seed (requires tenantId)
-  const tenantAdminRoleId = null;
-  if (false && tenantAdminRoleId) {
-    const tenantAdminPermissions = ['user:view', 'user:edit', 'user:revoke'];
-
-    const tenantAdminPermissionIds = tenantAdminPermissions
-      .map((slug) => permissionMap.get(slug))
-      .filter((id): id is string => id !== undefined);
-
-    const existingRolePerms = await prisma.rolePermission.findMany({
-      where: { roleId: tenantAdminRoleId },
-    });
-    const existingPermissionIds = new Set(existingRolePerms.map((rp) => rp.permissionId));
-
-    const permissionsToAdd = tenantAdminPermissionIds.filter(
-      (id) => !existingPermissionIds.has(id)
-    );
-    if (permissionsToAdd.length > 0) {
-      await prisma.rolePermission.createMany({
-        data: permissionsToAdd.map((permissionId) => ({
-          roleId: tenantAdminRoleId,
-          permissionId,
-        })),
-        skipDuplicates: true,
-      });
-      console.log(`  ✅ tenant_admin: Assigned ${permissionsToAdd.length} permissions`);
-    } else {
-      console.log(`  ⏭️  tenant_admin: All permissions already assigned`);
-    }
-  }
 
   // Seed super admin user
   console.log('\n👑 Creating super admin user...');

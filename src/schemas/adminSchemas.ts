@@ -54,13 +54,46 @@ export const assignRoleSchema = z.object({
   status: z.enum(['active', 'pending', 'revoked']).optional(),
 });
 
+// Helper: Preprocess empty strings to undefined for optional datetime fields
+const optionalDatetime = z.preprocess(
+  (val) => {
+    if (typeof val === 'string' && val.trim() === '') {
+      return undefined;
+    }
+    return val;
+  },
+  z.string().datetime().optional()
+);
+
+// Helper: Preprocess empty strings to undefined for optional string fields
+const optionalNonEmptyString = z.preprocess(
+  (val) => {
+    if (typeof val === 'string' && val.trim() === '') {
+      return undefined;
+    }
+    return val;
+  },
+  z.string().optional()
+);
+
+// Helper: Preprocess empty strings to undefined for optional UUID fields
+const optionalUuid = z.preprocess(
+  (val) => {
+    if (typeof val === 'string' && val.trim() === '') {
+      return undefined;
+    }
+    return val;
+  },
+  z.string().uuid().optional()
+);
+
 // Audit log filter schema
 export const auditLogFilterSchema = z.object({
-  tenantId: z.string().uuid().optional(),
-  actorUserId: z.string().uuid().optional(),
-  action: z.string().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  tenantId: optionalUuid,
+  actorUserId: optionalUuid,
+  action: optionalNonEmptyString,
+  startDate: optionalDatetime,
+  endDate: optionalDatetime,
   limit: z.number().int().min(1).max(1000).optional(),
   offset: z.number().int().min(0).optional(),
 });

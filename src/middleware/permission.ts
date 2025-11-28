@@ -160,15 +160,15 @@ export function requireAllPermissions(permissionSlugs: string[]) {
 }
 
 /**
- * Require wildcard permission (all permissions)
+ * Require a specific permission at global scope (for admin routes)
  *
- * Checks if user has wildcard permission ('*') at global level.
- * This grants access to all system operations (global administration).
- * More flexible than role-based checks - works with any role that has wildcard permission.
+ * Checks permission at global level (tenantId = null) regardless of tenant context.
+ * Use this for admin routes that manage system-wide resources.
  *
+ * @param permissionSlug Permission slug (e.g., 'role:delete', 'tenant:create')
  * @returns Middleware function
  */
-export function requireWildcardPermission() {
+export function requirePermissionGlobal(permissionSlug: string) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.userId || req.session?.userId;
@@ -177,9 +177,62 @@ export function requireWildcardPermission() {
         return;
       }
 
-      const hasWildcardPermission = await permissionCheckService.hasPermission(userId, '*', null);
+      // Always check at global scope (null tenantId) for admin routes
+      const hasPermission = await permissionCheckService.hasPermission(
+        userId,
+        permissionSlug,
+        null
+      );
 
-      if (!hasWildcardPermission) {
+      if (!hasPermission) {
+        res.status(403).json({
+          error: 'Insufficient permissions',
+          required: permissionSlug,
+        });
+        return;
+      }
+
+      // Load permissions into request context at global scope
+      if (!req.permissions) {
+        const effectivePermissions = await permissionCheckService.getUserEffectivePermissions(
+          userId,
+          null
+        );
+        req.permissions = effectivePermissions.map((p) => p.permission_slug);
+      }
+
+      next();
+    } catch (error) {
+      console.error('Permission check error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+}
+
+/**
+ * Require universal permission (all permissions)
+ *
+ * Checks if user has universal permission ('*') at global level.
+ * This grants access to all system operations (global administration).
+ * More flexible than role-based checks - works with any role that has universal permission.
+ *
+ * @deprecated For new code, use specific permissions with `requirePermissionGlobal()` for better granularity.
+ * Only use this when you truly need to check for ALL permissions.
+ *
+ * @returns Middleware function
+ */
+export function requireUniversalPermission() {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.userId || req.session?.userId;
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const hasUniversalPermission = await permissionCheckService.hasPermission(userId, '*', null);
+
+      if (!hasUniversalPermission) {
         res.status(403).json({
           error: 'Global administrator access required',
         });
@@ -187,23 +240,35 @@ export function requireWildcardPermission() {
       }
       next();
     } catch (error) {
-      console.error('Wildcard permission check error:', error);
+      console.error('Universal permission check error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   };
 }
 
 /**
+ * Require wildcard permission (all permissions)
+ *
+ * @deprecated Use `requireUniversalPermission()` instead. This function is kept for backward compatibility.
+ *
+ * @returns Middleware function
+ */
+export function requireWildcardPermission() {
+  // Delegate to requireUniversalPermission for consistency
+  return requireUniversalPermission();
+}
+
+/**
  * Require super admin role
  *
- * @deprecated Use `requireWildcardPermission()` instead for better flexibility.
+ * @deprecated Use `requireUniversalPermission()` instead for better flexibility.
  * This function is kept for backward compatibility.
  *
  * @returns Middleware function
  */
 export function requireSuperAdmin() {
-  // Delegate to requireWildcardPermission for consistency
-  return requireWildcardPermission();
+  // Delegate to requireUniversalPermission for consistency
+  return requireUniversalPermission();
 }
 
 /**

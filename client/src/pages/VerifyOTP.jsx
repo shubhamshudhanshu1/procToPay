@@ -303,7 +303,7 @@ const VerifyOTP = () => {
       if (isRegistration) {
         await authService.resendRegistrationOTP(contact.value);
       } else {
-        await authService.requestOTP(contact.value);
+      await authService.requestOTP(contact.value);
       }
       setSuccess(`OTP sent successfully to ${contact.type === 'email' ? 'email' : 'phone'}!`);
 
