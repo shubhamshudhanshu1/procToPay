@@ -36,6 +36,9 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
   const [userGlobalRoles, setUserGlobalRoles] = useState([]);
+  const [originalUserGlobalRoles, setOriginalUserGlobalRoles] = useState([]); // Track original state
+  const [rolesToAdd, setRolesToAdd] = useState([]); // Track roles to be added
+  const [rolesToRemove, setRolesToRemove] = useState([]); // Track roles to be removed
   const [editFormData, setEditFormData] = useState({
     firstName: '',
     lastName: '',
@@ -112,31 +115,84 @@ export default function UserManagement() {
     // Fetch user's existing global roles
     try {
       const rolesData = await adminService.getUserGlobalRoles(user.id);
-      setUserGlobalRoles(rolesData?.roles || []);
+      const roles = rolesData?.roles || [];
+      setUserGlobalRoles(roles);
+      setOriginalUserGlobalRoles(roles); // Store original state
+      setRolesToAdd([]); // Reset pending additions
+      setRolesToRemove([]); // Reset pending removals
     } catch (err) {
       console.error('Failed to fetch user roles:', err);
       setUserGlobalRoles([]);
+      setOriginalUserGlobalRoles([]);
+      setRolesToAdd([]);
+      setRolesToRemove([]);
     }
   };
 
-  const handleAssignRole = () => {
-    if (!selectedRoleId || !selectedUser) return;
+  const handleAddRoleToList = () => {
+    if (!selectedRoleId) return;
 
-    assignRoleMutation.mutate({
-      userId: selectedUser.id,
-      roleId: selectedRoleId,
-    });
+    // Find the selected role from global roles
+    const roleToAdd = globalRoles.find((r) => r.id === selectedRoleId);
+    if (!roleToAdd) return;
+
+    // Add to pending additions
+    setRolesToAdd([...rolesToAdd, roleToAdd]);
+
+    // Add to current display list
+    setUserGlobalRoles([...userGlobalRoles, { id: roleToAdd.id, name: roleToAdd.name, slug: roleToAdd.slug }]);
+
+    // Clear selection
+    setSelectedRoleId('');
   };
 
-  const handleRevokeRole = (userId, roleId) => {
-    if (!userId) return;
+  const handleRemoveRoleFromList = (roleId) => {
+    // Check if this role was in the original list
+    const wasOriginal = originalUserGlobalRoles.some((r) => r.id === roleId);
 
-    revokeRoleMutation.mutate({
-      userId,
-      roleId,
-    });
-    // Update local state immediately
+    if (wasOriginal) {
+      // Mark for removal
+      const roleToRemove = userGlobalRoles.find((r) => r.id === roleId);
+      setRolesToRemove([...rolesToRemove, roleToRemove]);
+    } else {
+      // Remove from pending additions
+      setRolesToAdd(rolesToAdd.filter((r) => r.id !== roleId));
+    }
+
+    // Remove from display list
     setUserGlobalRoles(userGlobalRoles.filter((r) => r.id !== roleId));
+  };
+
+  const handleSaveRoleChanges = async () => {
+    if (!selectedUser) return;
+
+    try {
+      // Process removals first
+      for (const role of rolesToRemove) {
+        await adminService.revokeGlobalRoleFromUser(selectedUser.id, role.id);
+      }
+
+      // Process additions
+      for (const role of rolesToAdd) {
+        await adminService.assignGlobalRoleToUser(selectedUser.id, role.id);
+      }
+
+      // Refresh data
+      queryClient.invalidateQueries(['users']);
+      queryClient.invalidateQueries(['userGlobalRoles', selectedUser?.id]);
+
+      // Close dialog and reset state
+      setOpenRoleDialog(false);
+      setSelectedUser(null);
+      setSelectedRoleId('');
+      setUserGlobalRoles([]);
+      setOriginalUserGlobalRoles([]);
+      setRolesToAdd([]);
+      setRolesToRemove([]);
+    } catch (error) {
+      console.error('Failed to save role changes:', error);
+      // You might want to show an error message to the user here
+    }
   };
 
   const handleOpenEditDialog = (user) => {
@@ -182,6 +238,8 @@ export default function UserManagement() {
     });
   };
 
+  // Check if there are any pending changes
+  const hasChanges = rolesToAdd.length > 0 || rolesToRemove.length > 0;
   // Filter for global roles only (tenantId === null)
   const globalRoles = (rolesData?.roles || []).filter(
     (role) => role.tenantId === null || role.tenantId === undefined
@@ -367,7 +425,7 @@ export default function UserManagement() {
                       label={role.name}
                       size="small"
                       onDelete={() => {
-                        handleRevokeRole(selectedUser.id, role.id);
+                        handleRemoveRoleFromList(role.id);
                       }}
                     />
                   ))}
@@ -391,12 +449,21 @@ export default function UserManagement() {
                   </MenuItem>
                 ))}
             </TextField>
+            <Button
+              onClick={handleAddRoleToList}
+              variant="outlined"
+              disabled={!selectedRoleId}
+              sx={{ mt: 1 }}
+              fullWidth
+            >
+              Add Role
+            </Button>
             {globalRoles.filter((role) => !userGlobalRoles.some((ur) => ur.id === role.id))
               .length === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                All available global roles are already assigned
-              </Typography>
-            )}
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  All available global roles are already assigned
+                </Typography>
+              )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -405,16 +472,20 @@ export default function UserManagement() {
               setOpenRoleDialog(false);
               setSelectedUser(null);
               setSelectedRoleId('');
+              setUserGlobalRoles([]);
+              setOriginalUserGlobalRoles([]);
+              setRolesToAdd([]);
+              setRolesToRemove([]);
             }}
           >
             Cancel
           </Button>
           <Button
-            onClick={handleAssignRole}
+            onClick={handleSaveRoleChanges}
             variant="contained"
-            disabled={!selectedRoleId || assignRoleMutation.isLoading}
+            disabled={!hasChanges}
           >
-            Assign Role
+            Save Changes
           </Button>
         </DialogActions>
       </Dialog>

@@ -14,6 +14,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import meRoutes from './routes/me';
 import configRoutes from './routes/configRoutes';
 import { getCSRFToken } from './middleware/csrf';
+import { requireAuth } from './middleware/auth';
 
 const app: express.Application = express();
 
@@ -76,7 +77,7 @@ app.get('/csrf', getCSRFToken);
 app.use('/api/config', configRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', tenantRoutes); // Tenant selection endpoints
-app.use('/api/admin', adminRoutes); // Admin endpoints (Global admin only)
+app.use('/api/admin', requireAuth, adminRoutes); // Admin endpoints (Global admin only) - requires authentication
 app.use('/api/tenants', tenantScopedRoutes); // Tenant-scoped endpoints
 app.use('/api/me', meRoutes);
 
