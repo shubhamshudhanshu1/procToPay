@@ -1,8 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { useAuthStore } from './store/authStore';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
@@ -19,6 +18,7 @@ import AuditLogs from './pages/admin/AuditLogs';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedRouteWithPermission from './components/ProtectedRouteWithPermission';
 import AuthInitializer from './components/AuthInitializer';
+import RootRedirect from './components/RootRedirect';
 import { theme } from './theme';
 
 const queryClient = new QueryClient();
@@ -116,7 +116,7 @@ function App() {
                   }
                 />
               </Route>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<RootRedirect />} />
             </Routes>
           </AuthInitializer>
         </Router>

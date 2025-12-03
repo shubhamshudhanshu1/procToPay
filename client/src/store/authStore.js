@@ -55,6 +55,19 @@ export const useAuthStore = create(
         });
       },
 
+      restoreSession: (userData) => {
+        set({
+          user: userData,
+          isAuthenticated: true,
+          tenantId: userData?.currentTenant?.id || null,
+          currentTenant: userData?.currentTenant || null,
+          permissions: userData?.permissions || [],
+          roles: userData?.roles || [],
+          policyVer: userData?.policyVer || null,
+          requiresTenantSelection: !userData?.currentTenant,
+        });
+      },
+
       logout: async () => {
         // Clear local state first to prevent recursive calls
         set({

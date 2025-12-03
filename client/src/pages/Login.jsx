@@ -4,10 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { loginSchema } from '../schemas/authSchemas';
-import { useAuthStore } from '../store/authStore';
 import { AuthLayout, AuthHeader, AuthAlert } from '../components/auth';
 import { EmailOrPhoneInput, Button, Typography, Link } from '../components/ui';
 import { Link as RouterLink } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
 
 const Login = () => {
   const [error, setError] = useState('');
@@ -15,14 +15,20 @@ const Login = () => {
   const [success, setSuccess] = useState('');
   const [inputType, setInputType] = useState(null); // Track detected type (email/phone)
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, tenantId, permissions } = useAuthStore();
 
-  // Redirect if already authenticated
+  // Simple redirect: only if authenticated with valid session
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+    if (isAuthenticated && permissions && permissions.length > 0) {
+      if (tenantId) {
+        navigate('/dashboard', { replace: true });
+      } else if (permissions.includes('tenant:view') || permissions.includes('*')) {
+        navigate('/admin/tenants', { replace: true });
+      } else {
+        navigate('/tenant-selection', { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, tenantId, permissions, navigate]);
 
   const {
     control,

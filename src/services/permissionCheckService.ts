@@ -17,7 +17,7 @@ class PermissionCheckService {
 
   /**
    * Check if user has universal permission ('*') that grants all permissions
-   *
+   * 
    * Checks the database for '*' permission assigned to any of the user's active roles.
    * This is permission-based rather than role-based, making it more flexible.
    *
@@ -30,9 +30,9 @@ class PermissionCheckService {
     const universalCacheKey = `${this.cachePrefix}universal:${userId}:${tenantId || 'global'}`;
     try {
       const cached = await redis.get(universalCacheKey);
-      if (cached !== null) {
-        return cached === 'true';
-      }
+    if (cached !== null) {
+      return cached === 'true';
+    }
     } catch (error) {
       // Redis failure - continue to database check
       console.warn(
@@ -47,11 +47,11 @@ class PermissionCheckService {
     const result = await prisma.$queryRaw<Array<{ exists: boolean }>>`
       SELECT EXISTS(
         SELECT 1
-        FROM v_user_effective_perms
-        WHERE user_id = ${userId}::uuid
-          AND (tenant_id = ${tenantId}::uuid OR tenant_id IS NULL)
+      FROM v_user_effective_perms
+      WHERE user_id = ${userId}::uuid
+        AND (tenant_id = ${tenantId}::uuid OR tenant_id IS NULL)
           AND permission_slug = '*'
-        LIMIT 1
+      LIMIT 1
       ) as exists
     `;
 

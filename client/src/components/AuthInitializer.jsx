@@ -4,29 +4,18 @@ import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
 
 const AuthInitializer = ({ children }) => {
-  const { isAuthenticated, login } = useAuthStore();
+  const { restoreSession } = useAuthStore();
   const location = useLocation();
   const hasCheckedRef = useRef(false);
   const isCheckingRef = useRef(false);
 
   useEffect(() => {
-    // Only check once on mount, and only if not authenticated
+    // Only check once per mount cycle
     // Skip check if we're on auth pages (login, register, verify-otp)
-    const isAuthPage = ['/login', '/register', '/verify-otp'].includes(location.pathname);
+    const authPages = ['/login', '/register', '/verify-otp'];
+    const isAuthPage = authPages.includes(location.pathname);
     
-    // Reset hasCheckedRef when user logs out (isAuthenticated becomes false)
-    // but only if we're on an auth page (to allow re-checking after logout)
-    if (!isAuthenticated && isAuthPage) {
-      hasCheckedRef.current = false;
-      isCheckingRef.current = false;
-    }
-    
-    if (
-      !hasCheckedRef.current &&
-      !isCheckingRef.current &&
-      !isAuthenticated &&
-      !isAuthPage
-    ) {
+    if (!hasCheckedRef.current && !isCheckingRef.current && !isAuthPage) {
       hasCheckedRef.current = true;
       isCheckingRef.current = true;
       
@@ -35,7 +24,7 @@ const AuthInitializer = ({ children }) => {
         .getCurrentUser()
         .then((user) => {
           // Session exists, restore auth state
-          login(user, null);
+          restoreSession(user);
           isCheckingRef.current = false;
         })
         .catch(() => {
@@ -44,7 +33,7 @@ const AuthInitializer = ({ children }) => {
           isCheckingRef.current = false;
         });
     }
-  }, [isAuthenticated, login, location.pathname]);
+  }, [restoreSession, location.pathname]);
 
   return children;
 };

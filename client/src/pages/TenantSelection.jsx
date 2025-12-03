@@ -21,7 +21,7 @@ import AppHeader from '../components/layout/AppHeader';
 
 export default function TenantSelection() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { hasPermission } = usePermissions();
   const {
     selectTenantContext,
@@ -31,7 +31,7 @@ export default function TenantSelection() {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Use permission check for UI logic - users with tenant:view permission can access global admin
   const canAccessGlobalAdmin = hasPermission('tenant:view');
 
@@ -47,7 +47,11 @@ export default function TenantSelection() {
       setTenants(response.tenants || []);
     } catch (err) {
       console.error('Failed to load tenants:', err);
-      setError(err.response?.data?.error || 'Failed to load tenants');
+      // 401 errors are handled by API interceptor (logout and redirect)
+      // Only show error for other errors
+      if (err.response?.status !== 401) {
+        setError(err.response?.data?.error || 'Failed to load tenants');
+      }
     } finally {
       setLoading(false);
     }
@@ -121,7 +125,14 @@ export default function TenantSelection() {
       >
         <Container maxWidth="sm">
           <Alert severity="error">{error}</Alert>
-          <Button variant="contained" onClick={() => navigate('/login')} sx={{ mt: 2 }}>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              await logout();
+              navigate('/login', { replace: true });
+            }}
+            sx={{ mt: 2 }}
+          >
             Back to Login
           </Button>
         </Container>
@@ -253,7 +264,14 @@ export default function TenantSelection() {
               <Alert severity="info">
                 You don't have access to any tenants. Please contact an administrator.
               </Alert>
-              <Button variant="outlined" onClick={() => navigate('/login')} sx={{ mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  await logout();
+                  navigate('/login', { replace: true });
+                }}
+                sx={{ mt: 2 }}
+              >
                 Back to Login
               </Button>
             </Box>

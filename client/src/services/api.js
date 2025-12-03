@@ -30,65 +30,33 @@ api.interceptors.request.use(
 // Flag to prevent recursive logout calls
 let isLoggingOut = false;
 
-// Response interceptor to handle auth errors and token refresh
+// Response interceptor to handle 401 errors
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-
     if (error.response?.status === 401) {
-      // Skip logout handling if:
-      // 1. Already logging out (prevent infinite loop)
-      // 2. This is a logout request itself (don't logout on logout)
-      // 3. Already on auth pages
-      // 4. This is a refresh token request (to prevent infinite refresh loop)
+      // Skip handling for logout/refresh requests to prevent infinite loops
       const isLogoutRequest = error.config?.url?.includes('/logout');
       const isRefreshRequest = error.config?.url?.includes('/auth/refresh');
-      const currentPath = window.location.pathname;
-      const isAuthPage = ['/login', '/register', '/verify-otp', '/tenant-selection'].includes(currentPath);
 
-      if (isLoggingOut || isLogoutRequest || isRefreshRequest || isAuthPage) {
+      if (isLoggingOut || isLogoutRequest || isRefreshRequest) {
         return Promise.reject(error);
       }
 
-      // Try to refresh token if we have a refresh token
-      const { refreshToken, requiresTenantSelection } = useAuthStore.getState();
-      
-      if (refreshToken && !requiresTenantSelection && !originalRequest._retry) {
-        originalRequest._retry = true;
-        
-        try {
-          const { authService } = await import('./authService');
-          const response = await authService.refreshToken(refreshToken);
-          
-          // Update access token in store
-          useAuthStore.getState().accessToken = response.accessToken;
-          
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
-          return api(originalRequest);
-        } catch (refreshError) {
-          // Refresh failed, logout user
-          console.error('Token refresh failed:', refreshError);
-        }
-      }
-
-      // Token expired or invalid, logout user
+      // Simple: 401 = logout and go to login
       isLoggingOut = true;
       try {
         const logout = useAuthStore.getState().logout;
         await logout();
       } catch (logoutError) {
-        // Ignore logout errors to prevent infinite loop
-        console.error('Logout error in interceptor:', logoutError);
+        // Ignore logout errors
       } finally {
         isLoggingOut = false;
       }
 
-      // Redirect based on context
-      if (requiresTenantSelection) {
-        window.location.href = '/tenant-selection';
-      } else if (!isAuthPage) {
+      // Redirect to login if not already there
+      const currentPath = window.location.pathname;
+      if (!['/login', '/register'].includes(currentPath)) {
         window.location.href = '/login';
       }
     }

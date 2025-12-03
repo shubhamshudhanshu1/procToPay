@@ -4,23 +4,29 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { registerSchema } from '../schemas/authSchemas';
-import { useAuthStore } from '../store/authStore';
 import { AuthLayout, AuthHeader, AuthAlert } from '../components/auth';
 import { Input, Button, Typography, Link } from '../components/ui';
+import { useAuthStore } from '../store/authStore';
 
 const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, tenantId, permissions } = useAuthStore();
 
-  // Redirect if already authenticated
+  // Simple redirect: only if authenticated with valid session
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+    if (isAuthenticated && permissions && permissions.length > 0) {
+      if (tenantId) {
+        navigate('/dashboard', { replace: true });
+      } else if (permissions.includes('tenant:view') || permissions.includes('*')) {
+        navigate('/admin/tenants', { replace: true });
+      } else {
+        navigate('/tenant-selection', { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, tenantId, permissions, navigate]);
 
   const {
     control,

@@ -25,38 +25,38 @@ router.get(
   '/',
   requirePermissionGlobal('audit:view'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const filters = auditLogFilterSchema.parse({
-        tenantId: req.query.tenantId,
-        actorUserId: req.query.actorUserId,
-        action: req.query.action,
-        startDate: req.query.startDate,
-        endDate: req.query.endDate,
-        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 100,
-        offset: req.query.offset ? parseInt(req.query.offset as string, 10) : 0,
-      });
+  try {
+    const filters = auditLogFilterSchema.parse({
+      tenantId: req.query.tenantId,
+      actorUserId: req.query.actorUserId,
+      action: req.query.action,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 100,
+      offset: req.query.offset ? parseInt(req.query.offset as string, 10) : 0,
+    });
 
-      // Convert date strings to Date objects
-      const processedFilters: any = {
-        ...filters,
-        startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-        endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-      };
+    // Convert date strings to Date objects
+    const processedFilters: any = {
+      ...filters,
+      startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+      endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+    };
 
-      const logs = await auditService.getAuditLogs(processedFilters);
+    const logs = await auditService.getAuditLogs(processedFilters);
 
       // Serialize BigInt id to string for JSON response
       const serializedLogs = serializeAuditLogs(logs);
 
       res.json({ success: true, logs: serializedLogs });
-    } catch (error: any) {
-      if (error instanceof ZodError) {
-        return next(error);
-      }
-      const err: any = new Error(error.message || 'An error occurred');
-      err.statusCode = error.statusCode || 500;
-      next(err);
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return next(error);
     }
+    const err: any = new Error(error.message || 'An error occurred');
+    err.statusCode = error.statusCode || 500;
+    next(err);
+  }
   }
 );
 
@@ -68,38 +68,38 @@ router.get(
   '/tenants/:tenantId',
   requirePermissionGlobal('audit:view'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const tenantId = req.params.tenantId;
-      const filters = auditLogFilterSchema.parse({
-        actorUserId: req.query.actorUserId,
-        action: req.query.action,
-        startDate: req.query.startDate,
-        endDate: req.query.endDate,
-        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 100,
-        offset: req.query.offset ? parseInt(req.query.offset as string, 10) : 0,
-      });
+  try {
+    const tenantId = req.params.tenantId;
+    const filters = auditLogFilterSchema.parse({
+      actorUserId: req.query.actorUserId,
+      action: req.query.action,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 100,
+      offset: req.query.offset ? parseInt(req.query.offset as string, 10) : 0,
+    });
 
-      // Convert date strings to Date objects
-      const processedFilters: any = {
-        ...filters,
-        startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-        endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-      };
+    // Convert date strings to Date objects
+    const processedFilters: any = {
+      ...filters,
+      startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+      endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+    };
 
-      const logs = await auditService.getTenantAuditLogs(tenantId, processedFilters);
+    const logs = await auditService.getTenantAuditLogs(tenantId, processedFilters);
 
       // Serialize BigInt id to string for JSON response
       const serializedLogs = serializeAuditLogs(logs);
 
       res.json({ success: true, logs: serializedLogs });
-    } catch (error: any) {
-      if (error instanceof ZodError) {
-        return next(error);
-      }
-      const err: any = new Error(error.message || 'An error occurred');
-      err.statusCode = error.statusCode || 500;
-      next(err);
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return next(error);
     }
+    const err: any = new Error(error.message || 'An error occurred');
+    err.statusCode = error.statusCode || 500;
+    next(err);
+  }
   }
 );
 
