@@ -51,7 +51,11 @@ const menuItems = [
     items: [
       { label: 'Receivable Schemes', icon: Code, path: '/receivables/schemes' },
       { label: 'Receivable Reports', icon: BarChart, path: '/receivables/reports' },
-      { label: 'Receivable Gap Analysis', icon: AssessmentOutlined, path: '/receivables/gap-analysis' },
+      {
+        label: 'Receivable Gap Analysis',
+        icon: AssessmentOutlined,
+        path: '/receivables/gap-analysis',
+      },
     ],
   },
   {
@@ -70,13 +74,13 @@ const menuItems = [
       { label: 'Reports & Dashboards', icon: Assessment, path: '/reports/dashboards' },
     ],
   },
-      {
-        section: 'Settings & Integration',
-        items: [
-          { label: 'Data Upload', icon: CloudUpload, path: '/settings/data-upload' },
-          { label: 'ToT Templates', icon: Description, path: '/settings/tot-templates' },
-          { label: 'Master Data', icon: Storage, path: '/settings/master-data' },
-          { label: 'Scheme Setup', icon: Settings, path: '/settings/scheme-setup' },
+  {
+    section: 'Settings & Integration',
+    items: [
+      { label: 'Data Upload', icon: CloudUpload, path: '/settings/data-upload' },
+      { label: 'ToT Templates', icon: Description, path: '/settings/tot-templates' },
+      { label: 'Master Data', icon: Storage, path: '/settings/master-data' },
+      { label: 'Scheme Setup', icon: Settings, path: '/settings/scheme-setup' },
       { label: 'PO Maker Checker Rules', icon: CheckBox, path: '/settings/po-rules' },
       { label: 'Demand Forecasting', icon: TrendingUp, path: '/settings/forecasting' },
       { label: 'Itemization', icon: Tag, path: '/settings/itemization' },
@@ -94,7 +98,7 @@ const MainLayout = ({ children }) => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F5F5F5' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'white' }}>
       {/* Sidebar */}
       <Drawer
         variant="permanent"
@@ -104,7 +108,7 @@ const MainLayout = ({ children }) => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: '#fafafa',
             borderRight: '1px solid #E0E0E0',
           },
         }}
@@ -211,7 +215,7 @@ const MainLayout = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          backgroundColor: '#F5F5F5',
+          backgroundColor: 'white',
           minHeight: '100vh',
         }}
       >

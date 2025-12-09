@@ -49,7 +49,7 @@ export default function AdminLayout() {
   const isActive = (path) => location.pathname.startsWith(path);
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F5F5F5' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'white' }}>
       {/* Admin Sidebar */}
       <Drawer
         variant="permanent"
@@ -59,8 +59,8 @@ export default function AdminLayout() {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#FFFFFF',
-            borderRight: '1px solid #E0E0E0',
+            backgroundColor: '#fafafa',
+            borderRight: '1px solid #E8EEF6',
           },
         }}
       >
@@ -157,7 +157,7 @@ export default function AdminLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          backgroundColor: '#F5F5F5',
+          backgroundColor: 'white',
           minHeight: '100vh',
         }}
       >
@@ -169,7 +169,7 @@ export default function AdminLayout() {
           sx={{
             flexGrow: 1,
             p: 3,
-            backgroundColor: '#F5F5F5',
+            backgroundColor: 'white',
             minHeight: 'calc(100vh - 64px)',
           }}
         >

@@ -5,39 +5,23 @@ import {
   Typography,
   TextField,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
   IconButton,
-  Menu,
-  MenuItem,
   CircularProgress,
   Alert,
   InputAdornment,
-  Tabs,
-  Tab,
   Chip,
+  Card,
+  CardContent,
 } from '@mui/material';
-import {
-  Search,
-  Add,
-  MoreVert,
-  Edit,
-  Delete,
-  CloudUpload,
-  FileDownload,
-  GetApp,
-} from '@mui/icons-material';
+import { Search, Add, Edit, Delete, CloudUpload, FileDownload, GetApp } from '@mui/icons-material';
 import { masterDataService } from '../services/masterDataService';
 import { usePermissions } from '../hooks/usePermissions';
 import { useToast } from '../hooks/useToast';
 import PageHeader from '../components/layout/PageHeader';
 import StatusChip from '../components/ui/StatusChip';
 import Snackbar from '../components/ui/Snackbar';
+import CustomTabs from '../components/ui/CustomTabs';
 import MainLayout from '../components/layout/MainLayout';
 import CreateEditModal from '../components/masterData/CreateEditModal';
 import BulkUploadDialog from '../components/masterData/BulkUploadDialog';
@@ -54,8 +38,6 @@ export default function MasterDataManagement() {
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedItem, setSelectedItem] = useState(null);
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openBulkUpload, setOpenBulkUpload] = useState(false);
@@ -141,7 +123,6 @@ export default function MasterDataManagement() {
       queryClient.invalidateQueries([currentType + 's']);
       setOpenDeleteConfirm(false);
       setItemToDelete(null);
-      handleMenuClose();
     },
     onError: (error) => {
       showToast(error.response?.data?.error || `Failed to delete ${currentType}`, 'error');
@@ -166,29 +147,6 @@ export default function MasterDataManagement() {
   const handleClearSearch = () => {
     setSearchQuery('');
     setSearchFilter('');
-  };
-
-  const handleMenuOpen = (event, item) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedItem(item);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedItem(null);
-  };
-
-  const handleEdit = () => {
-    setEditingItem(selectedItem);
-    setOpenEditModal(true);
-    handleMenuClose();
-  };
-
-  const handleDelete = () => {
-    // Store the item to delete before closing the menu
-    setItemToDelete(selectedItem);
-    setOpenDeleteConfirm(true);
-    handleMenuClose();
   };
 
   const handleConfirmDelete = () => {
@@ -269,6 +227,13 @@ export default function MasterDataManagement() {
   const items = data?.[dataKeyMap[currentType]] || [];
   const itemCount = items.length;
 
+  // Show error toast for query errors (must be before any conditional returns)
+  useEffect(() => {
+    if (error && !toast.open) {
+      showToast(error.response?.data?.error || 'Failed to load data', 'error');
+    }
+  }, [error, toast.open, showToast]);
+
   if (isLoading) {
     return (
       <MainLayout>
@@ -279,13 +244,6 @@ export default function MasterDataManagement() {
     );
   }
 
-  // Show error toast for query errors
-  useEffect(() => {
-    if (error && !toast.open) {
-      showToast(error.response?.data?.error || 'Failed to load data', 'error');
-    }
-  }, [error, toast.open, showToast]);
-
   return (
     <MainLayout>
       <PageHeader
@@ -293,23 +251,38 @@ export default function MasterDataManagement() {
         subtitle="Manage brands, categories, and products"
       />
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-          <Tab label="Brands" />
-          <Tab label="Categories" />
-          <Tab label="Products" />
-        </Tabs>
+      {/* Custom Tabs */}
+      <Box sx={{ mb: 3 }}>
+        <CustomTabs
+          tabs={[
+            { label: 'Brands', value: 0 },
+            { label: 'Categories', value: 1 },
+            { label: 'Products', value: 2 },
+          ]}
+          value={tabValue}
+          onChange={(newValue) => setTabValue(newValue)}
+        />
       </Box>
 
       {types.map((type, index) => (
         <TabPanel key={type} value={tabValue} index={index}>
           <Box>
             <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                mb: 3,
+              }}
             >
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}s Management
-              </Typography>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}s Management
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Manage your {type}s data, add new entries, edit existing ones, or bulk upload.
+                </Typography>
+              </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {hasPermission('master_data:bulk_upload') && (
                   <Button
@@ -354,133 +327,171 @@ export default function MasterDataManagement() {
               </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-              <TextField
-                placeholder={`Search ${type}s...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearch();
-                  }
-                }}
-                size="small"
-                sx={{ flexGrow: 1, maxWidth: 400 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              {searchFilter && (
-                <Button variant="text" onClick={handleClearSearch} size="small">
-                  Clear
-                </Button>
-              )}
-            </Box>
-
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}s ({itemCount})
-              </Typography>
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Code</TableCell>
-                      {type === 'product' ? (
-                        <>
-                          <TableCell>Brand</TableCell>
-                          <TableCell>Category</TableCell>
-                          <TableCell>Price</TableCell>
-                        </>
-                      ) : (
-                        <TableCell>Description</TableCell>
-                      )}
-                      <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {items.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={type === 'product' ? 7 : 5}
-                          align="center"
-                          sx={{ py: 4 }}
-                        >
-                          <Typography color="text.secondary">
-                            No {type}s found. Create your first {type} to get started.
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      items.map((item) => (
-                        <TableRow key={item.id} hover>
-                          <TableCell>
-                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+            {/* Cards List - Full Width Column */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {items.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Typography color="text.secondary">
+                    No {type}s found. Create your first {type} to get started.
+                  </Typography>
+                </Box>
+              ) : (
+                items.map((item) => (
+                  <Card
+                    key={item.id}
+                    sx={{
+                      width: '100%',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: '#E0E0E0',
+                      backgroundColor: '#FFFFFF',
+                      boxShadow: 'none',
+                      '&:hover': {
+                        boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ py: 2, px: 3 }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <Typography
+                              variant="h6"
+                              sx={{ fontWeight: 600, fontSize: '1rem', color: '#212529' }}
+                            >
                               {item.name}
                             </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={item.code} size="small" variant="outlined" />
-                          </TableCell>
+                            <Chip
+                              label={item.code}
+                              size="small"
+                              sx={{
+                                backgroundColor: '#F5F5F5',
+                                color: '#495057',
+                                fontWeight: 500,
+                                height: 22,
+                                fontSize: '0.75rem',
+                                borderRadius: '12px',
+                                border: 'none',
+                              }}
+                            />
+                          </Box>
                           {type === 'product' ? (
                             <>
-                              <TableCell>
-                                <Chip label={item.brand?.code || '-'} size="small" />
-                              </TableCell>
-                              <TableCell>
-                                <Chip label={item.category?.code || '-'} size="small" />
-                              </TableCell>
-                              <TableCell>
-                                {item.price ? `₹${parseFloat(item.price).toLocaleString()}` : '-'}
-                              </TableCell>
+                              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.5 }}>
+                                {item.brand?.code && (
+                                  <Chip
+                                    label={item.brand.code}
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: '#F5F5F5',
+                                      color: '#495057',
+                                      height: 20,
+                                      fontSize: '0.7rem',
+                                      border: 'none',
+                                    }}
+                                  />
+                                )}
+                                {item.category?.code && (
+                                  <Chip
+                                    label={item.category.code}
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: '#F5F5F5',
+                                      color: '#495057',
+                                      height: 20,
+                                      fontSize: '0.7rem',
+                                      border: 'none',
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                              {item.price && (
+                                <Typography
+                                  variant="h6"
+                                  sx={{
+                                    mt: 0.5,
+                                    color: '#212529',
+                                    fontWeight: 600,
+                                    fontSize: '1.125rem',
+                                  }}
+                                >
+                                  ₹{parseFloat(item.price).toLocaleString()}
+                                </Typography>
+                              )}
                             </>
                           ) : (
-                            <TableCell>
-                              <Typography variant="body2" color="text.secondary">
-                                {item.description || '-'}
+                            item.description && (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ mt: 0.5, color: '#6C757D' }}
+                              >
+                                {item.description}
                               </Typography>
-                            </TableCell>
+                            )
                           )}
-                          <TableCell>
-                            <StatusChip value={item.status} size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <IconButton size="small" onClick={(e) => handleMenuOpen(e, item)}>
-                              <MoreVert fontSize="small" />
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 0.5, ml: 1, flexShrink: 0 }}>
+                          {hasPermission('master_data:edit') && (
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setEditingItem(item);
+                                setOpenEditModal(true);
+                              }}
+                              sx={{
+                                border: '1px solid',
+                                borderColor: '#E0E0E0',
+                                borderRadius: 1,
+                                width: 32,
+                                height: 32,
+                                color: '#495057',
+                                '&:hover': {
+                                  backgroundColor: '#F5F5F5',
+                                },
+                              }}
+                            >
+                              <Edit fontSize="small" />
                             </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                          )}
+                          {hasPermission('master_data:delete') && (
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setItemToDelete(item);
+                                setOpenDeleteConfirm(true);
+                              }}
+                              sx={{
+                                border: '1px solid',
+                                borderColor: '#E0E0E0',
+                                borderRadius: 1,
+                                width: 32,
+                                height: 32,
+                                color: '#DC3545',
+                                '&:hover': {
+                                  backgroundColor: '#FFF5F5',
+                                },
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </Box>
           </Box>
         </TabPanel>
       ))}
-
-      {/* Actions Menu */}
-      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        {hasPermission('master_data:edit') && (
-          <MenuItem onClick={handleEdit}>
-            <Edit fontSize="small" sx={{ mr: 1 }} />
-            Edit
-          </MenuItem>
-        )}
-        {hasPermission('master_data:delete') && (
-          <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
-            <Delete fontSize="small" sx={{ mr: 1 }} />
-            Delete
-          </MenuItem>
-        )}
-      </Menu>
 
       {/* Modals */}
       <CreateEditModal

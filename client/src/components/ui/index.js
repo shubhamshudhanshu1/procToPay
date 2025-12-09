@@ -13,6 +13,7 @@ export { default as RichTextEditor } from './RichTextEditor';
 // Layout Components
 export { default as Card } from './Card';
 export { default as Container } from './Container';
+export { default as CustomTabs } from './CustomTabs';
 export { default as Paper } from './Paper';
 export { default as Grid } from './Grid';
 export { default as Stack } from './Stack';
