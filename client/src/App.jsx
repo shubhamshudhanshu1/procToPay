@@ -16,6 +16,7 @@ import Permissions from './pages/admin/Permissions';
 import UserManagement from './pages/admin/UserManagement';
 import AuditLogs from './pages/admin/AuditLogs';
 import TotTemplates from './pages/TotTemplates';
+import MasterDataManagement from './pages/MasterDataManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedRouteWithPermission from './components/ProtectedRouteWithPermission';
 import AuthInitializer from './components/AuthInitializer';
@@ -65,6 +66,14 @@ function App() {
                   <ProtectedRoute>
                     <TotTemplates />
                   </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/master-data"
+                element={
+                  <ProtectedRouteWithPermission permission="master_data:view">
+                    <MasterDataManagement />
+                  </ProtectedRouteWithPermission>
                 }
               />
               {/* Admin Routes */}

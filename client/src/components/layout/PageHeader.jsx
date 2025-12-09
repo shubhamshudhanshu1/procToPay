@@ -2,7 +2,12 @@ import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { Add } from '@mui/icons-material';
 
-const PageHeader = ({ title, subtitle, actionLabel, onAction, actionIcon, ...props }) => {
+const PageHeader = ({ title, subtitle, actionLabel, onAction, actionIcon, showCreateButton, ...rest }) => {
+  // Filter out props that shouldn't be passed to DOM elements
+  const boxProps = { ...rest };
+  // Remove any non-standard props that might cause warnings
+  delete boxProps.showCreateButton;
+  
   return (
     <Box
       sx={{
@@ -11,7 +16,7 @@ const PageHeader = ({ title, subtitle, actionLabel, onAction, actionIcon, ...pro
         alignItems: 'flex-start',
         mb: 3,
       }}
-      {...props}
+      {...boxProps}
     >
       <Box>
         <Typography variant="h5" sx={{ fontWeight: 600, mb: subtitle ? 0.5 : 0 }}>

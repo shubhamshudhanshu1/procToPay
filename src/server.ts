@@ -16,6 +16,7 @@ import configRoutes from './routes/configRoutes';
 import { getCSRFToken } from './middleware/csrf';
 import { requireAuth } from './middleware/auth';
 import totTemplatesRoutes from './routes/totTemplates';
+import masterDataRoutes from './routes/masterData';
 
 const app: express.Application = express();
 
@@ -81,6 +82,7 @@ app.use('/api/auth', tenantRoutes); // Tenant selection endpoints
 app.use('/api/admin', requireAuth, adminRoutes); // Admin endpoints (Global admin only) - requires authentication
 app.use('/api/tenants', tenantScopedRoutes); // Tenant-scoped endpoints
 app.use('/api/tot-templates', totTemplatesRoutes); // TOT Templates endpoints (includes auth, tenant context, and permissions)
+app.use('/api/master-data', masterDataRoutes); // Master Data endpoints (includes auth, tenant context, and permissions)
 app.use('/api/me', meRoutes);
 
 // 404 handler

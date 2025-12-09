@@ -31,6 +31,12 @@ model User {
   createdTotTemplates        TotTemplate[]              @relation("TotTemplateCreator")
   updatedTotTemplates        TotTemplate[]              @relation("TotTemplateUpdater")
   createdTotTemplateVersions TotTemplateVersion[]       @relation("TotTemplateVersionCreator")
+  createdBrands              Brand[]                    @relation("BrandCreator")
+  updatedBrands               Brand[]                    @relation("BrandUpdater")
+  createdCategories           Category[]                 @relation("CategoryCreator")
+  updatedCategories           Category[]                 @relation("CategoryUpdater")
+  createdProducts            Product[]                   @relation("ProductCreator")
+  updatedProducts            Product[]                   @relation("ProductUpdater")
 
   // Ensure at least one contact method exists
   @@index([email])
@@ -91,6 +97,9 @@ model Tenant {
   refreshTokens  RefreshToken[]
   auditLogs      AuditLog[]
   totTemplates   TotTemplate[]
+  brands         Brand[]
+  categories     Category[]
+  products       Product[]
 
   @@index([name])
   @@index([code])
@@ -306,4 +315,95 @@ model TotTemplateVersion {
   @@index([templateId])
   @@index([templateId, version])
   @@map("tot_template_versions")
+}
+
+// ============================================
+// Master Data Models
+// ============================================
+
+model Brand {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String   // e.g., "Apple", "Samsung"
+  code        String   // e.g., "APL", "SAM" - Short code for the brand
+  description String?  // Full company name or description
+  status      String   @default("active") // 'active' | 'archived'
+  createdBy   String   @db.Uuid
+  updatedBy   String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator   User      @relation("BrandCreator", fields: [createdBy], references: [id])
+  updater   User?     @relation("BrandUpdater", fields: [updatedBy], references: [id])
+  products  Product[]
+
+  // Constraints
+  @@unique([tenantId, name])  // Brand name must be unique per tenant
+  @@unique([tenantId, code])  // Brand code must be unique per tenant (but same code can exist in different tenants)
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, name])   // For search
+  @@map("brands")
+}
+
+model Category {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String   // e.g., "Smartphones", "Tablets"
+  code        String   // e.g., "SP", "TAB" - Short code for the category
+  description String?  // Category description
+  status      String   @default("active") // 'active' | 'archived'
+  createdBy   String   @db.Uuid
+  updatedBy   String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator   User      @relation("CategoryCreator", fields: [createdBy], references: [id])
+  updater   User?     @relation("CategoryUpdater", fields: [updatedBy], references: [id])
+  products  Product[]
+
+  // Constraints
+  @@unique([tenantId, name])  // Category name must be unique per tenant
+  @@unique([tenantId, code])  // Category code must be unique per tenant
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, name])   // For search
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String   // e.g., "iPhone 15", "Galaxy S23"
+  code        String   // e.g., "IP15", "GS23" - Product SKU/code
+  description String?  // Product description
+  brandId     String   @db.Uuid  // Reference to Brand
+  categoryId  String   @db.Uuid  // Reference to Category
+  price       Decimal? @db.Decimal(12, 2) // Product price
+  status      String   @default("active") // 'active' | 'archived'
+  createdBy   String   @db.Uuid
+  updatedBy   String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  brand     Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  creator   User      @relation("ProductCreator", fields: [createdBy], references: [id])
+  updater   User?     @relation("ProductUpdater", fields: [updatedBy], references: [id])
+
+  // Constraints
+  @@unique([tenantId, name])  // Product name must be unique per tenant
+  @@unique([tenantId, code])   // Product code must be unique per tenant
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, brandId])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, name])   // For search
+  @@map("products")
 }

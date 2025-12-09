@@ -70,13 +70,13 @@ const menuItems = [
       { label: 'Reports & Dashboards', icon: Assessment, path: '/reports/dashboards' },
     ],
   },
-  {
-    section: 'Settings & Integration',
-    items: [
-      { label: 'Data Upload', icon: CloudUpload, path: '/settings/data-upload' },
-      { label: 'ToT Templates', icon: Description, path: '/settings/tot-templates' },
-      { label: 'Scheme Setup', icon: Settings, path: '/settings/scheme-setup' },
-      { label: 'Master Data', icon: Storage, path: '/settings/master-data' },
+      {
+        section: 'Settings & Integration',
+        items: [
+          { label: 'Data Upload', icon: CloudUpload, path: '/settings/data-upload' },
+          { label: 'ToT Templates', icon: Description, path: '/settings/tot-templates' },
+          { label: 'Master Data', icon: Storage, path: '/settings/master-data' },
+          { label: 'Scheme Setup', icon: Settings, path: '/settings/scheme-setup' },
       { label: 'PO Maker Checker Rules', icon: CheckBox, path: '/settings/po-rules' },
       { label: 'Demand Forecasting', icon: TrendingUp, path: '/settings/forecasting' },
       { label: 'Itemization', icon: Tag, path: '/settings/itemization' },
