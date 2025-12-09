@@ -8,6 +8,7 @@ export { default as Checkbox } from './Checkbox';
 export { default as Radio } from './Radio';
 export { default as Switch } from './Switch';
 export { default as TextArea } from './TextArea';
+export { default as RichTextEditor } from './RichTextEditor';
 
 // Layout Components
 export { default as Card } from './Card';
@@ -33,6 +34,7 @@ export { default as Breadcrumbs } from './Breadcrumbs';
 export { default as Table } from './Table';
 export { default as List } from './List';
 export { default as Chip } from './Chip';
+export { default as StatusChip } from './StatusChip';
 export { default as Avatar } from './Avatar';
 export { default as Badge } from './Badge';
 
@@ -45,3 +47,4 @@ export { default as Divider } from './Divider';
 export { default as Icon } from './Icon';
 export { default as Tooltip } from './Tooltip';
 export { default as Dialog } from './Dialog';
+export { default as ConfirmationDialog } from './ConfirmationDialog';

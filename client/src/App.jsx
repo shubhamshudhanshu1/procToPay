@@ -15,6 +15,7 @@ import Roles from './pages/admin/Roles';
 import Permissions from './pages/admin/Permissions';
 import UserManagement from './pages/admin/UserManagement';
 import AuditLogs from './pages/admin/AuditLogs';
+import TotTemplates from './pages/TotTemplates';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedRouteWithPermission from './components/ProtectedRouteWithPermission';
 import AuthInitializer from './components/AuthInitializer';
@@ -55,6 +56,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <UserManagementTenant />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/tot-templates"
+                element={
+                  <ProtectedRoute>
+                    <TotTemplates />
                   </ProtectedRoute>
                 }
               />

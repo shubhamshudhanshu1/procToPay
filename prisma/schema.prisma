@@ -25,9 +25,12 @@ model User {
   updatedAt       DateTime  @updatedAt @db.Timestamptz
 
   // Relations for multi-tenant RBAC
-  userRoles     UserRole[]
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
+  userRoles                  UserRole[]
+  refreshTokens              RefreshToken[]
+  auditLogs                  AuditLog[]
+  createdTotTemplates        TotTemplate[]              @relation("TotTemplateCreator")
+  updatedTotTemplates        TotTemplate[]              @relation("TotTemplateUpdater")
+  createdTotTemplateVersions TotTemplateVersion[]       @relation("TotTemplateVersionCreator")
 
   // Ensure at least one contact method exists
   @@index([email])
@@ -87,6 +90,7 @@ model Tenant {
   userRoles      UserRole[]
   refreshTokens  RefreshToken[]
   auditLogs      AuditLog[]
+  totTemplates   TotTemplate[]
 
   @@index([name])
   @@index([code])
@@ -209,4 +213,97 @@ model AuditLog {
   @@index([ts])
   @@index([action])
   @@map("audit_logs")
+}
+
+// TOT Template Enums
+enum TotTemplateStatus {
+  draft
+  active
+  archived
+}
+
+enum TotTemplateType {
+  VOLUME_BASED
+  SEASONAL
+  LAUNCH_SUPPORT
+  CLEARANCE
+}
+
+enum TotTemplateParameterType {
+  text
+  number
+  date
+  boolean
+  currency
+  percentage
+}
+
+// TOT Template Models
+model TotTemplate {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String                  @db.Uuid
+  name        String
+  description String?
+  type        TotTemplateType
+  status      TotTemplateStatus       @default(draft)
+  content     String                  // HTML content (can include {{parameterName}} placeholders)
+  version     String                  @default("v1.0")
+  createdBy   String                  @db.Uuid
+  updatedBy   String?                 @db.Uuid
+  createdAt   DateTime                @default(now()) @db.Timestamptz
+  updatedAt   DateTime                @updatedAt @db.Timestamptz
+
+  // Relations
+  tenant     Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator    User                    @relation("TotTemplateCreator", fields: [createdBy], references: [id])
+  updater    User?                   @relation("TotTemplateUpdater", fields: [updatedBy], references: [id])
+  parameters TotTemplateParameter[]
+  versions   TotTemplateVersion[]
+
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, status])
+  @@index([tenantId, name])
+  @@map("tot_templates")
+}
+
+model TotTemplateParameter {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId  String                  @db.Uuid
+  name        String
+  type        TotTemplateParameterType
+  label       String?
+  description String?
+  required    Boolean                 @default(false)
+  defaultValue String?
+  order       Int                     @default(0)
+  createdAt   DateTime                @default(now()) @db.Timestamptz
+  updatedAt   DateTime                @updatedAt @db.Timestamptz
+
+  // Relations
+  template TotTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, name])
+  @@index([templateId])
+  @@map("tot_template_parameters")
+}
+
+model TotTemplateVersion {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId  String            @db.Uuid
+  version     String
+  content     String
+  parameters  Json
+  status      TotTemplateStatus
+  createdBy   String            @db.Uuid
+  createdAt   DateTime          @default(now()) @db.Timestamptz
+  changeNotes String?
+
+  // Relations
+  template TotTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  creator  User        @relation("TotTemplateVersionCreator", fields: [createdBy], references: [id])
+
+  @@index([templateId])
+  @@index([templateId, version])
+  @@map("tot_template_versions")
 }
