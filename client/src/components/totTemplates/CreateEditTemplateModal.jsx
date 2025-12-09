@@ -84,6 +84,16 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
     onSuccess: () => {
       onSuccess();
     },
+    onError: (error) => {
+      const errorMessage =
+        error.response?.data?.error ||
+        (error.response?.data?.details
+          ? JSON.stringify(error.response.data.details, null, 2)
+          : null) ||
+        error.message ||
+        'Failed to update template';
+      alert(errorMessage);
+    },
   });
 
   const handleSubmit = () => {
@@ -93,13 +103,39 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
       return;
     }
 
+    // Clean parameters - only send fields that are expected by the API
+    // Filter out empty parameters and clean the data
+    const cleanedParameters = formData.parameters
+      .filter((param) => param.name && param.name.trim()) // Only include parameters with names
+      .map((param, index) => {
+        const cleaned = {
+          name: param.name.trim(),
+          type: param.type,
+          required: Boolean(param.required),
+          order: typeof param.order === 'number' ? param.order : index,
+        };
+
+        // Only include optional fields if they have values
+        if (param.label && param.label.trim()) {
+          cleaned.label = param.label.trim();
+        }
+        if (param.description && param.description.trim()) {
+          cleaned.description = param.description.trim();
+        }
+        if (param.defaultValue && param.defaultValue.trim()) {
+          cleaned.defaultValue = param.defaultValue.trim();
+        }
+
+        return cleaned;
+      });
+
     const submitData = {
       name: formData.name,
       description: formData.description || undefined,
       type: formData.type,
       content: formData.content,
       status: formData.status,
-      parameters: formData.parameters,
+      parameters: cleanedParameters,
     };
 
     if (isEdit) {
@@ -152,13 +188,7 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
   };
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose} 
-      maxWidth="md" 
-      fullWidth
-      disableRestoreFocus
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth disableRestoreFocus>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">
@@ -204,7 +234,9 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
 
           {/* Parameters Section */}
           <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
+            >
               <Typography variant="subtitle2">Parameters</Typography>
               <Button
                 size="small"
@@ -257,11 +289,7 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
                   size="small"
                   sx={{ flex: 1 }}
                 />
-                <IconButton
-                  onClick={() => handleRemoveParameter(index)}
-                  size="small"
-                  color="error"
-                >
+                <IconButton onClick={() => handleRemoveParameter(index)} size="small" color="error">
                   <Delete fontSize="small" />
                 </IconButton>
               </Box>
@@ -300,14 +328,14 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isLoading}>Cancel</Button>
+        <Button onClick={handleClose} disabled={isLoading}>
+          Cancel
+        </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
           disabled={
-            !formData.name ||
-            !formData.content?.replace(/<[^>]*>/g, '').trim() ||
-            isLoading
+            !formData.name || !formData.content?.replace(/<[^>]*>/g, '').trim() || isLoading
           }
         >
           {isEdit ? 'Update' : 'Create Template'}
@@ -316,4 +344,3 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
     </Dialog>
   );
 }
-

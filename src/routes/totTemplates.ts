@@ -118,7 +118,11 @@ router.patch(
       if (error instanceof ZodError) {
         return res.status(400).json({ error: 'Validation error', details: error.errors });
       }
-      if (error.message === 'Template not found') {
+      if (
+        error.message === 'Template not found' ||
+        error.message === 'TOT Template not found.' ||
+        error.message.includes('not found')
+      ) {
         return res.status(404).json({ error: error.message });
       }
       next(error);
@@ -213,4 +217,3 @@ router.delete(
 );
 
 export default router;
-

@@ -60,6 +60,8 @@ export default function TotTemplates() {
   const [openVersionModal, setOpenVersionModal] = useState(false);
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
+  const [viewingTemplateId, setViewingTemplateId] = useState(null);
+  const [versionTemplateId, setVersionTemplateId] = useState(null);
 
   // Build query params
   const queryParams = {
@@ -115,7 +117,10 @@ export default function TotTemplates() {
   };
 
   const handleView = () => {
-    setOpenViewModal(true);
+    if (selectedTemplate) {
+      setViewingTemplateId(selectedTemplate.id);
+      setOpenViewModal(true);
+    }
     handleMenuClose();
   };
 
@@ -131,7 +136,10 @@ export default function TotTemplates() {
   };
 
   const handleVersionHistory = () => {
-    setOpenVersionModal(true);
+    if (selectedTemplate) {
+      setVersionTemplateId(selectedTemplate.id);
+      setOpenVersionModal(true);
+    }
     handleMenuClose();
   };
 
@@ -365,25 +373,25 @@ export default function TotTemplates() {
         />
       )}
 
-      {openViewModal && selectedTemplate && (
+      {openViewModal && viewingTemplateId && (
         <ViewTemplateModal
           open={openViewModal}
           onClose={() => {
             setOpenViewModal(false);
-            setSelectedTemplate(null);
+            setViewingTemplateId(null);
           }}
-          templateId={selectedTemplate.id}
+          templateId={viewingTemplateId}
         />
       )}
 
-      {openVersionModal && selectedTemplate && (
+      {openVersionModal && versionTemplateId && (
         <VersionHistoryModal
           open={openVersionModal}
           onClose={() => {
             setOpenVersionModal(false);
-            setSelectedTemplate(null);
+            setVersionTemplateId(null);
           }}
-          templateId={selectedTemplate.id}
+          templateId={versionTemplateId}
         />
       )}
 

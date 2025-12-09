@@ -76,8 +76,50 @@ const RichTextEditor = ({
 
   const handlePaste = (e) => {
     e.preventDefault();
+    
+    // Try to get HTML first, fallback to plain text
+    let html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
-    document.execCommand('insertText', false, text);
+    
+    if (html) {
+      // Clean up the HTML to remove unwanted attributes/styles
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      
+      // Remove script tags and dangerous attributes
+      const scripts = tempDiv.querySelectorAll('script');
+      scripts.forEach(script => script.remove());
+      
+      // Clean up inline styles if needed (optional - comment out if you want to preserve styles)
+      // const allElements = tempDiv.querySelectorAll('*');
+      // allElements.forEach(el => {
+      //   el.removeAttribute('style');
+      //   el.removeAttribute('class');
+      // });
+      
+      // Insert the cleaned HTML
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        
+        // Create a fragment from the cleaned HTML
+        const fragment = document.createDocumentFragment();
+        while (tempDiv.firstChild) {
+          fragment.appendChild(tempDiv.firstChild);
+        }
+        range.insertNode(fragment);
+        
+        // Move cursor to end of inserted content
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    } else {
+      // Fallback to plain text
+      document.execCommand('insertText', false, text);
+    }
+    
     handleInput();
   };
 

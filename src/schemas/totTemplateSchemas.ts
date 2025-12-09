@@ -21,22 +21,24 @@ export const versionSchema = z.string().regex(/^v\d+\.\d+$/, {
   message: 'Version must be in format v1.0, v2.0, etc.',
 });
 
-export const createParameterSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(100)
-    .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, {
-      message:
-        'Parameter name must start with a letter and contain only alphanumeric characters and underscores',
-    }),
-  type: parameterTypeEnum,
-  label: z.string().max(200).optional(),
-  description: z.string().max(500).optional(),
-  required: z.boolean().default(false),
-  defaultValue: z.string().optional(),
-  order: z.number().int().min(0).default(0),
-});
+export const createParameterSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1)
+      .max(100)
+      .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, {
+        message:
+          'Parameter name must start with a letter and contain only alphanumeric characters and underscores',
+      }),
+    type: parameterTypeEnum,
+    label: z.string().max(200).optional().nullable(),
+    description: z.string().max(500).optional().nullable(),
+    required: z.boolean().default(false),
+    defaultValue: z.string().optional().nullable(),
+    order: z.number().int().min(0).default(0),
+  })
+  .passthrough(); // Allow extra fields but ignore them
 
 export const createTemplateSchema = z.object({
   name: z.string().min(1).max(200),
@@ -68,4 +70,3 @@ export const duplicateTemplateSchema = z.object({
   name: z.string().min(1).max(200),
   version: versionSchema.optional(),
 });
-
