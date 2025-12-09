@@ -19,15 +19,7 @@ import {
   Alert,
   InputAdornment,
 } from '@mui/material';
-import {
-  Search,
-  Add,
-  MoreVert,
-  Visibility,
-  Edit,
-  ContentCopy,
-  History,
-} from '@mui/icons-material';
+import { Search, Add, MoreVert, Visibility, Edit, ContentCopy, History } from '@mui/icons-material';
 import { totTemplateService } from '../services/totTemplateService';
 import { usePermissions } from '../hooks/usePermissions';
 import PageHeader from '../components/layout/PageHeader';
@@ -178,9 +170,7 @@ export default function TotTemplates() {
   if (error) {
     return (
       <MainLayout>
-        <Alert severity="error">
-          {error.response?.data?.error || 'Failed to load templates'}
-        </Alert>
+        <Alert severity="error">{error.response?.data?.error || 'Failed to load templates'}</Alert>
       </MainLayout>
     );
   }
@@ -272,7 +262,7 @@ export default function TotTemplates() {
                 templates.map((template) => (
                   <TableRow key={template.id} hover>
                     <TableCell>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 700 }}>
                         {template.name}
                       </Typography>
                       {template.description && (
@@ -288,9 +278,7 @@ export default function TotTemplates() {
                     <TableCell>
                       <StatusChip value={template.status} size="small" />
                     </TableCell>
-                    <TableCell>
-                      {new Date(template.updatedAt).toLocaleDateString()}
-                    </TableCell>
+                    <TableCell>{new Date(template.updatedAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       {template.creator
                         ? `${template.creator.firstName || ''} ${template.creator.lastName || ''}`.trim() ||
@@ -298,10 +286,7 @@ export default function TotTemplates() {
                         : '-'}
                     </TableCell>
                     <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuOpen(e, template)}
-                      >
+                      <IconButton size="small" onClick={(e) => handleMenuOpen(e, template)}>
                         <MoreVert fontSize="small" />
                       </IconButton>
                     </TableCell>
@@ -410,4 +395,3 @@ export default function TotTemplates() {
     </MainLayout>
   );
 }
-

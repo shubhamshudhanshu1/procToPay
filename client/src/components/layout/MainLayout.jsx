@@ -26,6 +26,10 @@ import {
   QrCode,
   IntegrationInstructions,
   Groups,
+  Handshake,
+  ShowChart,
+  Code,
+  AssessmentOutlined,
 } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
 import { useTenantContext } from '../../hooks/useTenantContext';
@@ -34,6 +38,22 @@ import AppHeader from './AppHeader';
 const drawerWidth = 280;
 
 const menuItems = [
+  {
+    section: 'ToT Management',
+    items: [
+      { label: 'ToT Management', icon: Handshake, path: '/tot/management' },
+      { label: 'ToT Performance', icon: ShowChart, path: '/tot/performance' },
+      { label: 'ToT Gap Analysis', icon: TrendingUp, path: '/tot/gap-analysis' },
+    ],
+  },
+  {
+    section: 'Receivable Management',
+    items: [
+      { label: 'Receivable Schemes', icon: Code, path: '/receivables/schemes' },
+      { label: 'Receivable Reports', icon: BarChart, path: '/receivables/reports' },
+      { label: 'Receivable Gap Analysis', icon: AssessmentOutlined, path: '/receivables/gap-analysis' },
+    ],
+  },
   {
     section: 'Procurement',
     items: [
@@ -128,13 +148,13 @@ const MainLayout = ({ children }) => {
         {/* Navigation Menu */}
         <Box sx={{ overflow: 'auto', flex: 1, pt: 1 }}>
           {menuItems.map((section, sectionIndex) => (
-            <Box key={section.section} sx={{ mb: sectionIndex < menuItems.length - 1 ? 2 : 0 }}>
+            <Box key={section.section} sx={{ mb: sectionIndex < menuItems.length - 1 ? 1 : 0 }}>
               <Typography
                 variant="caption"
                 sx={{
                   px: 2.5,
-                  py: 1,
-                  color: '#6C757D',
+                  py: 0.75,
+                  color: '#495057',
                   fontWeight: 600,
                   fontSize: '0.75rem',
                   textTransform: 'uppercase',
@@ -143,11 +163,11 @@ const MainLayout = ({ children }) => {
               >
                 {section.section}
               </Typography>
-              <List dense>
+              <List dense sx={{ py: 0 }}>
                 {section.items.map((item) => {
                   const active = isActive(item.path);
                   return (
-                    <ListItem key={item.path} disablePadding sx={{ px: 1.5 }}>
+                    <ListItem key={item.path} disablePadding sx={{ px: 1.5, py: 0 }}>
                       <ListItemButton
                         onClick={() => navigate(item.path)}
                         sx={{
@@ -156,13 +176,14 @@ const MainLayout = ({ children }) => {
                           '&:hover': {
                             backgroundColor: active ? '#F0F0F0' : '#FAFAFA',
                           },
-                          py: 1,
+                          py: 0.75,
+                          minHeight: 40,
                         }}
                       >
                         <ListItemIcon
                           sx={{
                             minWidth: 40,
-                            color: active ? '#343A40' : '#6C757D',
+                            color: active ? '#212529' : '#495057',
                           }}
                         >
                           <item.icon fontSize="small" />
@@ -171,8 +192,8 @@ const MainLayout = ({ children }) => {
                           primary={item.label}
                           primaryTypographyProps={{
                             fontSize: '0.875rem',
-                            fontWeight: active ? 600 : 400,
-                            color: active ? '#343A40' : '#6C757D',
+                            fontWeight: active ? 600 : 500,
+                            color: active ? '#212529' : '#495057',
                           }}
                         />
                       </ListItemButton>

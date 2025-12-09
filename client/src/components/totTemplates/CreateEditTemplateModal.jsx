@@ -255,8 +255,6 @@ export default function CreateEditTemplateModal({ open, onClose, onSuccess, temp
                   gap: 1,
                   mb: 1,
                   p: 1,
-                  border: '1px solid',
-                  borderColor: 'divider',
                   borderRadius: 1,
                 }}
               >
