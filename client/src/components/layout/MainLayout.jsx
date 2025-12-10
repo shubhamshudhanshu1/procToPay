@@ -41,7 +41,7 @@ const menuItems = [
   {
     section: 'ToT Management',
     items: [
-      { label: 'ToT Management', icon: Handshake, path: '/tot/management' },
+      { label: 'ToT Management', icon: Handshake, path: '/tot-management' },
       { label: 'ToT Performance', icon: ShowChart, path: '/tot/performance' },
       { label: 'ToT Gap Analysis', icon: TrendingUp, path: '/tot/gap-analysis' },
     ],

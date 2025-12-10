@@ -323,7 +323,7 @@ export default function Roles() {
                 </Typography>
                 <Grid container spacing={1}>
                   {permissions.map((permission) => (
-                    <Grid item xs={12} sm={6} key={permission.id}>
+                    <Grid item size={{ xs: 12, sm: 6 }} key={permission.id}>
                       <FormControlLabel
                         control={
                           <Checkbox
@@ -387,7 +387,7 @@ export default function Roles() {
           ) : (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               {permissions.map((permission) => (
-                <Grid item xs={12} sm={6} md={4} key={permission.id}>
+                <Grid item size={{ xs: 12, sm: 6, md: 4 }} key={permission.id}>
                   <FormControlLabel
                     control={
                       <Checkbox

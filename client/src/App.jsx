@@ -16,6 +16,7 @@ import Permissions from './pages/admin/Permissions';
 import UserManagement from './pages/admin/UserManagement';
 import AuditLogs from './pages/admin/AuditLogs';
 import TotTemplates from './pages/TotTemplates';
+import TotManagement from './pages/TotManagement';
 import MasterDataManagement from './pages/MasterDataManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedRouteWithPermission from './components/ProtectedRouteWithPermission';
@@ -66,6 +67,14 @@ function App() {
                   <ProtectedRoute>
                     <TotTemplates />
                   </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tot-management"
+                element={
+                  <ProtectedRouteWithPermission permission="tot_agreement:view">
+                    <TotManagement />
+                  </ProtectedRouteWithPermission>
                 }
               />
               <Route

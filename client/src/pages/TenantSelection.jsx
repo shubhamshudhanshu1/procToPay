@@ -168,7 +168,7 @@ export default function TenantSelection() {
           <Grid container spacing={3}>
             {/* Tenant Cards */}
             {tenants.map((tenant) => (
-              <Grid item xs={12} sm={6} md={4} key={tenant.id}>
+              <Grid item size={{ xs: 12, sm: 6, md: 4 }} key={tenant.id}>
                 <Card
                   sx={{
                     height: 200,
@@ -216,7 +216,7 @@ export default function TenantSelection() {
 
             {/* Create Tenant Button (Users with global admin access) */}
             {canAccessGlobalAdmin && (
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid item size={{ xs: 12, sm: 6, md: 4 }}>
                 <Card
                   sx={{
                     height: 200,

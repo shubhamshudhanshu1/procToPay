@@ -130,7 +130,7 @@ const CreateRoleDialog = ({ open, onClose, onSubmit }) => {
                 Permissions
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6}>
+                <Grid item size={{ xs: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {leftColumn.map((permission) => (
                       <Checkbox
@@ -142,7 +142,7 @@ const CreateRoleDialog = ({ open, onClose, onSubmit }) => {
                     ))}
                   </Box>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item size={{ xs: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {rightColumn.map((permission) => (
                       <Checkbox

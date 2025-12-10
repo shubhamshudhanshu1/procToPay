@@ -98,7 +98,7 @@ export default function AuditLogs() {
           <Typography variant="h6">Filters</Typography>
         </Box>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               label="Action"
               value={filters.action}
@@ -107,7 +107,7 @@ export default function AuditLogs() {
               size="small"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               label="Start Date"
               type="datetime-local"
@@ -118,7 +118,7 @@ export default function AuditLogs() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               label="End Date"
               type="datetime-local"
@@ -129,7 +129,7 @@ export default function AuditLogs() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               select
               label="Limit"

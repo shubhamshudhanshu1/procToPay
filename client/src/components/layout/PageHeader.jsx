@@ -2,11 +2,34 @@ import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { Add } from '@mui/icons-material';
 
-const PageHeader = ({ title, subtitle, actionLabel, onAction, actionIcon, showCreateButton, ...rest }) => {
+const PageHeader = ({ 
+  title, 
+  subtitle, 
+  actionLabel, 
+  onAction, 
+  actionIcon, 
+  showCreateButton, 
+  onCreateClick,
+  createButtonText,
+  ...rest 
+}) => {
   // Filter out props that shouldn't be passed to DOM elements
   const boxProps = { ...rest };
   // Remove any non-standard props that might cause warnings
   delete boxProps.showCreateButton;
+  delete boxProps.onCreateClick;
+  delete boxProps.createButtonText;
+  
+  // Determine which button props to use
+  const buttonLabel = createButtonText || actionLabel;
+  const buttonAction = onCreateClick || onAction;
+  
+  // Show button if:
+  // 1. showCreateButton is explicitly true, OR
+  // 2. showCreateButton is not provided (undefined) and we have button props (backward compatibility)
+  const shouldShowButton = 
+    showCreateButton === true || 
+    (showCreateButton === undefined && buttonLabel && buttonAction);
   
   return (
     <Box
@@ -28,9 +51,9 @@ const PageHeader = ({ title, subtitle, actionLabel, onAction, actionIcon, showCr
           </Typography>
         )}
       </Box>
-      {actionLabel && onAction && (
-        <Button variant="contained" startIcon={actionIcon || <Add />} onClick={onAction}>
-          {actionLabel}
+      {shouldShowButton && buttonLabel && buttonAction && (
+        <Button variant="contained" startIcon={actionIcon || <Add />} onClick={buttonAction}>
+          {buttonLabel}
         </Button>
       )}
     </Box>

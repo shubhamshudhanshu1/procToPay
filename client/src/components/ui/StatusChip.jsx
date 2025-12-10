@@ -22,6 +22,11 @@ const StatusChip = ({
     'active': { color: 'success', bgColor: '#E8F5E9' },
     'draft': { color: 'warning', bgColor: '#FFF8E1' },
     'archived': { color: 'default', bgColor: '#F5F5F5' },
+    // TOT Agreement Statuses
+    'pending_approval': { color: 'warning', bgColor: '#FFF3E0' },
+    'approved': { color: 'info', bgColor: '#E3F2FD' },
+    'rejected': { color: 'error', bgColor: '#F8D7DA' },
+    'expired': { color: 'default', bgColor: '#F5F5F5' },
     
     // Template type colors (gray pills as per design)
     'VOLUME_BASED': { color: 'default', bgColor: '#F5F5F5' },

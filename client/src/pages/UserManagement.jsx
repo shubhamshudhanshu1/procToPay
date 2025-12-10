@@ -118,8 +118,7 @@ const UserManagement = () => {
           {/* Users Section */}
           <Grid
             item
-            xs={12}
-            md={6}
+            size={{ xs: 12, md: 6 }}
             sx={{ maxWidth: 'calc(50% - 8px)', flexBasis: 'calc(50% - 8px)' }}
           >
             <Box
@@ -173,8 +172,7 @@ const UserManagement = () => {
           {/* Roles & Permissions Section */}
           <Grid
             item
-            xs={12}
-            md={6}
+            size={{ xs: 12, md: 6 }}
             sx={{ maxWidth: 'calc(50% - 8px)', flexBasis: 'calc(50% - 8px)' }}
           >
             <Box

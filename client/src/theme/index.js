@@ -179,6 +179,16 @@ const components = {
         },
       },
     },
+    defaultProps: {
+      InputLabelProps: {
+        shrink: true,
+      },
+    },
+  },
+  MuiInputLabel: {
+    defaultProps: {
+      shrink: true,
+    },
   },
   MuiChip: {
     styleOverrides: {
