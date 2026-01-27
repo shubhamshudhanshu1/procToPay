@@ -347,9 +347,9 @@ export default function TotManagement() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        {agreement.status === 'pending_approval' &&
-                          hasPermission('tot_agreement:approve') && (
-                            <>
+                        {agreement.status === 'pending_approval' && (
+                          <>
+                            {hasPermission('tot_agreement:approve') && (
                               <IconButton
                                 size="small"
                                 onClick={() => {
@@ -361,6 +361,8 @@ export default function TotManagement() {
                               >
                                 <CheckCircle fontSize="small" />
                               </IconButton>
+                            )}
+                            {hasPermission('tot_agreement:reject') && (
                               <IconButton
                                 size="small"
                                 onClick={() => {
@@ -372,16 +374,19 @@ export default function TotManagement() {
                               >
                                 <Cancel fontSize="small" />
                               </IconButton>
-                            </>
-                          )}
+                            )}
+                          </>
+                        )}
                         {hasPermission('tot_agreement:export') && (
                           <IconButton size="small" title="Download PDF">
                             <FileDownload fontSize="small" />
                           </IconButton>
                         )}
-                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, agreement)}>
-                          <MoreVert fontSize="small" />
-                        </IconButton>
+                        {hasPermission('tot_agreement:view') && (
+                          <IconButton size="small" onClick={(e) => handleMenuOpen(e, agreement)}>
+                            <MoreVert fontSize="small" />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -394,10 +399,12 @@ export default function TotManagement() {
 
       {/* Actions Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleView}>
-          <Visibility fontSize="small" sx={{ mr: 1 }} />
-          View
-        </MenuItem>
+        {hasPermission('tot_agreement:view') && (
+          <MenuItem onClick={handleView}>
+            <Visibility fontSize="small" sx={{ mr: 1 }} />
+            View
+          </MenuItem>
+        )}
         {hasPermission('tot_agreement:edit') && selectedAgreement?.status === 'draft' && (
           <MenuItem onClick={handleEdit}>
             <Edit fontSize="small" sx={{ mr: 1 }} />

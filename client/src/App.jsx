@@ -64,9 +64,9 @@ function App() {
               <Route
                 path="/settings/tot-templates"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRouteWithPermission permission="tot_template:view">
                     <TotTemplates />
-                  </ProtectedRoute>
+                  </ProtectedRouteWithPermission>
                 }
               />
               <Route

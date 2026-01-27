@@ -33,6 +33,7 @@ services:
   # MailHog for email testing
   mailhog:
     image: mailhog/mailhog:latest
+    platform: linux/amd64
     ports:
       - '1025:1025' # SMTP server
       - '8025:8025' # Web UI

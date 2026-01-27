@@ -185,6 +185,7 @@ export default function TotTemplates() {
         subtitle="Manage document templates for Terms of Trade agreements."
         actionLabel="Create Template"
         onAction={() => setOpenCreateModal(true)}
+        showCreateButton={hasPermission('tot_template:create')}
       />
 
       {/* Search and Filter Section */}
@@ -312,10 +313,12 @@ export default function TotTemplates() {
           horizontal: 'right',
         }}
       >
-        <MenuItem onClick={handleView}>
-          <Visibility fontSize="small" sx={{ mr: 1 }} />
-          View
-        </MenuItem>
+        {hasPermission('tot_template:view') && (
+          <MenuItem onClick={handleView}>
+            <Visibility fontSize="small" sx={{ mr: 1 }} />
+            View
+          </MenuItem>
+        )}
         {hasPermission('tot_template:edit') && (
           <MenuItem onClick={handleEdit}>
             <Edit fontSize="small" sx={{ mr: 1 }} />
@@ -328,10 +331,12 @@ export default function TotTemplates() {
             Duplicate
           </MenuItem>
         )}
-        <MenuItem onClick={handleVersionHistory}>
-          <History fontSize="small" sx={{ mr: 1 }} />
-          Version History
-        </MenuItem>
+        {hasPermission('tot_template:view') && (
+          <MenuItem onClick={handleVersionHistory}>
+            <History fontSize="small" sx={{ mr: 1 }} />
+            Version History
+          </MenuItem>
+        )}
         {hasPermission('tot_template:delete') && (
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
             Delete
